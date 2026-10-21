@@ -1,0 +1,9 @@
+data/
+logs/
+metrics/
+stats/
+ids/*.txt
+__pycache__/
+*.pyc
+.env
+.venv/
