@@ -20,8 +20,8 @@ from crawler_discovery import discover_papers, make_client
 from crawler_monitor import ResourceMonitor
 from crawler_references import crawl_all_references
 from crawler_tables import build_tables
-from crawler_utils import (generate_id_range, make_session, read_id_file, to_folder_name,
-                   write_json)
+from crawler_utils import (generate_id_range, make_session, read_id_file, read_json,
+                           to_folder_name, write_json)
 
 
 def parse_arguments():
@@ -77,19 +77,28 @@ def main():
     wall_started = time.perf_counter()
 
     # Phase 1: entry discovery (arXiv API, sequential, 3 s pacing inside arxiv.Client)
-    discovery_started = time.perf_counter()
-    papers = discover_papers(make_client(), base_ids)
-    discovery_seconds = time.perf_counter() - discovery_started
-    write_json(work_dir / "discovery.json", papers)
+    discovery_file, discovery_time_file = work_dir / "discovery.json", work_dir / "discovery_seconds.json"
+    cached = read_json(discovery_file) if discovery_file.exists() and discovery_time_file.exists() else {}
+    if base_ids and all(base_id in cached for base_id in base_ids):
+        papers = {base_id: cached[base_id] for base_id in base_ids}
+        discovery_seconds = read_json(discovery_time_file)["seconds"]   # time of the original discovery
+        logging.info("Reusing saved discovery (%d ids, originally %.0f s)", len(papers), discovery_seconds)
+    else:
+        discovery_started = time.perf_counter()
+        papers = discover_papers(make_client(), base_ids)
+        discovery_seconds = time.perf_counter() - discovery_started
+        write_json(discovery_file, papers)
+        write_json(discovery_time_file, {"seconds": discovery_seconds})
 
     # Phase 2: sources (export.arxiv.org) and references (Semantic Scholar) run in parallel,
     # because they hit different hosts with independent rate limits.
     found_ids = [paper_id for paper_id, paper in papers.items() if paper["found"]]
-    stop_event = threading.Event()
+    stop_event = threading.Event()              # arXiv blocked / Ctrl+C: stop everything
+    references_stop_event = threading.Event()   # Semantic Scholar trouble: stop references only
     with ThreadPoolExecutor(max_workers=1) as pool:
         reference_future = pool.submit(crawl_all_references, make_session(),
                                        [] if arguments.skip_references else found_ids,
-                                       corpus_dir, to_folder_name, stop_event, api_key)
+                                       corpus_dir, to_folder_name, stop_event, references_stop_event, api_key)
         try:
             version_rows = crawl_all_sources(make_session(), papers, corpus_dir, stop_event)
         except KeyboardInterrupt:   # Ctrl+C: stop both workers cleanly, keep progress
@@ -136,6 +145,10 @@ def main():
         logging.error("Run stopped early (rate limit or Ctrl+C). Progress is saved: "
                       "wait 10-15 minutes and rerun the SAME command to resume.")
         sys.exit(1)
+    if references_stop_event.is_set():
+        logging.error("arXiv crawl finished, but the references crawl stopped early (Semantic Scholar 429). "
+                      "Fix S2_API_KEY / wait, then rerun the SAME command to fill the missing references.")
+        sys.exit(2)
 
 
 if __name__ == "__main__":

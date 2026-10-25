@@ -36,3 +36,4 @@ MAX_MEMBER_BYTES = 100 * 1024 * 1024 # guard against decompression bombs
 MAX_CONSECUTIVE_FAILURES_ARXIV = 5
 MAX_CONSECUTIVE_FAILURES_S2 = 10
 MAX_CONSECUTIVE_NETWORK_FAILURES = 15   # plain connection drops (no HTTP error code)
+MAX_TOTAL_DOWNLOAD_ATTEMPTS = 80   # hard cap; only attempts WITHOUT progress count toward MAX_RETRIES
