@@ -1,9 +1,8 @@
-data/
-logs/
-metrics/
-stats/
-ids/*.txt
+corpus/
+work/
 __pycache__/
-*.pyc
-.env
+test_corpus/
+test_work/
+logs/
 .venv/
+*.parquet
