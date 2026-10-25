@@ -1,4 +1,7 @@
 """Build the two Milestone 1 tables (papers, references) from the corpus folder."""
+import json
+import logging
+
 import pandas as pd
 
 from crawler_utils import read_json
@@ -40,6 +43,20 @@ def build_tables(corpus_dir, tables_dir):
     references = pd.DataFrame(reference_rows, columns=["arxiv_id", "ref_arxiv_id", "ref_title",
                                                        "ref_authors", "ref_submission_date", "ref_s2_id"])
     tables_dir.mkdir(parents=True, exist_ok=True)
-    papers.to_parquet(tables_dir / "papers.parquet", index=False)
-    references.to_parquet(tables_dir / "references.parquet", index=False)
+    save_table(papers, tables_dir / "papers")
+    save_table(references, tables_dir / "references")
     return papers, references
+
+
+def save_table(table, path_without_suffix):
+    """Save as parquet; if no parquet engine is installed, fall back to CSV (lists as JSON text)."""
+    try:
+        table.to_parquet(f"{path_without_suffix}.parquet", index=False)
+    except ImportError:
+        logging.getLogger("crawler.tables").warning(
+            "pyarrow is not installed -> writing CSV instead. Run: pip install pyarrow")
+        flat = table.copy()
+        for column in flat.columns:
+            flat[column] = flat[column].map(lambda v: json.dumps(v, ensure_ascii=False)
+                                            if isinstance(v, list) else v)
+        flat.to_csv(f"{path_without_suffix}.csv", index=False, encoding="utf-8")

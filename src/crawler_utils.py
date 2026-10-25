@@ -1,5 +1,6 @@
 """Small helpers: id handling, rate limiting, HTTP retries, JSON IO."""
 import json
+import logging
 import re
 import threading
 import time
@@ -9,6 +10,7 @@ import requests
 
 import crawler_config as config
 
+LOGGER = logging.getLogger("crawler.http")
 VERSIONED_ID_PATTERN = re.compile(r"^(?P<base>.+?)v(?P<version>\d+)$")
 
 
@@ -80,6 +82,7 @@ def request_with_retries(session, limiter, url, params=None, extra_headers=None)
     Raises PermanentRequestError only for 404/400 (resource does not exist).
     """
     last_error = None
+    retry_after_seconds = 0
     for attempt in range(config.MAX_RETRIES + 1):
         limiter.wait()
         try:
@@ -96,11 +99,16 @@ def request_with_retries(session, limiter, url, params=None, extra_headers=None)
             elif response.status_code in (404, 400):
                 raise PermanentRequestError(f"HTTP {response.status_code}")
             else:
-                last_error = f"HTTP {response.status_code}"  # includes 403/429: blocked or rate limited
+                body = response.text[:120].replace("\n", " ")
+                last_error = f"HTTP {response.status_code} {body}"  # 403/429: blocked or rate limited
                 retry_after = response.headers.get("Retry-After", "")
                 if retry_after.isdigit():
-                    time.sleep(min(int(retry_after), 120))
-        time.sleep(config.BACKOFF_BASE_SECONDS * (2 ** attempt))
+                    retry_after_seconds = min(int(retry_after), 120)
+        wait_seconds = max(config.BACKOFF_BASE_SECONDS * (2 ** attempt), retry_after_seconds)
+        retry_after_seconds = 0
+        LOGGER.warning("%s -> %s (attempt %d/%d), waiting %.0f s",
+                       url.split("?")[0], last_error, attempt + 1, config.MAX_RETRIES + 1, wait_seconds)
+        time.sleep(wait_seconds)
     raise RuntimeError(f"gave up after {config.MAX_RETRIES + 1} attempts: {last_error}")
 
 
