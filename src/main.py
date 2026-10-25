@@ -34,6 +34,8 @@ def parse_arguments():
     parser.add_argument("--corpus-dir", default="corpus", help="crawled .tex/.bib files go here")
     parser.add_argument("--work-dir", default="work",
                         help="logs, metrics and tables are written here")
+    parser.add_argument("--skip-references", action="store_true",
+                        help="do not call Semantic Scholar now (rerun without this flag later to fill references)")
     parser.add_argument("--limit", type=int, default=None, help="only crawl the first N ids (smoke test)")
     return parser.parse_args()
 
@@ -85,7 +87,8 @@ def main():
     found_ids = [paper_id for paper_id, paper in papers.items() if paper["found"]]
     stop_event = threading.Event()
     with ThreadPoolExecutor(max_workers=1) as pool:
-        reference_future = pool.submit(crawl_all_references, make_session(), found_ids,
+        reference_future = pool.submit(crawl_all_references, make_session(),
+                                       [] if arguments.skip_references else found_ids,
                                        corpus_dir, to_folder_name, stop_event, api_key)
         try:
             version_rows = crawl_all_sources(make_session(), papers, corpus_dir, stop_event)

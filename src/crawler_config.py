@@ -35,3 +35,4 @@ MAX_MEMBER_BYTES = 100 * 1024 * 1024 # guard against decompression bombs
 # Circuit breaker: stop the whole run (resumable) after this many consecutive failures.
 MAX_CONSECUTIVE_FAILURES_ARXIV = 5
 MAX_CONSECUTIVE_FAILURES_S2 = 10
+MAX_CONSECUTIVE_NETWORK_FAILURES = 15   # plain connection drops (no HTTP error code)

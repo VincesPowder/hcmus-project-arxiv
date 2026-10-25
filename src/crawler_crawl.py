@@ -56,6 +56,7 @@ def crawl_all_sources(session, papers, corpus_dir, stop_event):
     which usually means HTTP 429/403 (blocked). Progress is kept; rerun later to resume.
     """
     consecutive_failures = 0
+    consecutive_http_failures = 0
     limiter = RateLimiter(config.ARXIV_DELAY_SECONDS)
     version_rows = []
     for paper in papers.values():
@@ -68,11 +69,15 @@ def crawl_all_sources(session, papers, corpus_dir, stop_event):
             version_dir = paper_dir / f"v{version_info['version']}"
             stats = crawl_version(session, limiter, version_info, version_dir)
             version_rows.append(stats)
-            consecutive_failures = consecutive_failures + 1 if stats["status"] == "failed" else 0
-            if consecutive_failures >= config.MAX_CONSECUTIVE_FAILURES_ARXIV:
-                LOGGER.error("STOP: %d consecutive arXiv failures (likely HTTP 429/403). "
+            failed = stats["status"] == "failed"
+            consecutive_failures = consecutive_failures + 1 if failed else 0
+            consecutive_http_failures = (consecutive_http_failures + 1
+                                         if failed and "HTTP" in (stats["error"] or "") else 0)
+            if (consecutive_http_failures >= config.MAX_CONSECUTIVE_FAILURES_ARXIV
+                    or consecutive_failures >= config.MAX_CONSECUTIVE_NETWORK_FAILURES):
+                LOGGER.error("STOP: %d consecutive failures (%d with HTTP errors, likely 429/403 or no network). "
                              "Wait 10-15 minutes, then rerun the same command to resume.",
-                             consecutive_failures)
+                             consecutive_failures, consecutive_http_failures)
                 stop_event.set()
                 return version_rows
         write_json(paper_dir / "paper.json", {key: paper[key] for key in (
