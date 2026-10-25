@@ -46,7 +46,7 @@ def fetch_references(session, limiter, arxiv_id, api_key=None):
     return "ok", references, None
 
 
-def crawl_all_references(session, arxiv_ids, corpus_dir, folder_of, stop_event, api_key=None):
+def crawl_all_references(session, arxiv_ids, corpus_dir, folder_of, stop_event, own_stop_event, api_key=None):
     """Crawl references for every id, resuming from references.json files already on disk.
 
     Returns one stats row per id.
@@ -56,7 +56,7 @@ def crawl_all_references(session, arxiv_ids, corpus_dir, folder_of, stop_event, 
     rows = []
     consecutive_failures = 0
     for arxiv_id in arxiv_ids:
-        if stop_event.is_set():
+        if stop_event.is_set() or own_stop_event.is_set():
             break
         target = corpus_dir / folder_of(arxiv_id) / "references.json"
         started = time.perf_counter()
@@ -75,8 +75,9 @@ def crawl_all_references(session, arxiv_ids, corpus_dir, folder_of, stop_event, 
         consecutive_failures = consecutive_failures + 1 if status == "failed" else 0
         if consecutive_failures >= config.MAX_CONSECUTIVE_FAILURES_S2:
             LOGGER.error("STOP: %d consecutive Semantic Scholar failures (likely HTTP 429). "
-                         "Add S2_API_KEY or wait 10-15 minutes, then rerun to resume.", consecutive_failures)
-            stop_event.set()
+                         "Only the references crawl stops; arXiv downloads continue. Fix the key / wait, "
+                         "then rerun to fill the missing references.", consecutive_failures)
+            own_stop_event.set()
         if status != "ok":
             LOGGER.warning("References of %s: %s (%s)", arxiv_id, status, error)
         rows.append({"arxiv_id": arxiv_id, "refs_status": status, "n_references": len(references),

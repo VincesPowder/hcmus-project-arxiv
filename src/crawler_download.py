@@ -113,8 +113,10 @@ def download_source(session, limiter, versioned_id):
     url = config.ARXIV_SRC_URL.format(versioned_id=versioned_id)
     buffer = bytearray()
     last_error = None
-    for attempt in range(config.MAX_RETRIES + 1):
+    attempts_without_progress = 0
+    for attempt in range(1, config.MAX_TOTAL_DOWNLOAD_ATTEMPTS + 1):
         limiter.wait()
+        length_before = len(buffer)
         headers = {"Range": f"bytes={len(buffer)}-"} if buffer else {}
         try:
             with session.get(url, headers=headers, stream=True,
@@ -143,8 +145,14 @@ def download_source(session, limiter, versioned_id):
             raise
         except (requests.RequestException, urllib3.exceptions.HTTPError, OSError) as error:
             last_error = f"network error: {error}"
-        wait_seconds = config.BACKOFF_BASE_SECONDS * (2 ** attempt)
-        LOGGER.warning("%s: %s (attempt %d/%d, %d bytes kept), waiting %.0f s", versioned_id,
-                       last_error, attempt + 1, config.MAX_RETRIES + 1, len(buffer), wait_seconds)
+        # Only attempts that gained no new bytes count toward the retry limit.
+        attempts_without_progress = 0 if len(buffer) > length_before else attempts_without_progress + 1
+        if attempts_without_progress > config.MAX_RETRIES:
+            break
+        wait_seconds = config.BACKOFF_BASE_SECONDS * (2 ** max(attempts_without_progress - 1, 0))
+        LOGGER.warning("%s: %s (attempt %d, %d bytes kept, %d/%d without progress), waiting %.0f s",
+                       versioned_id, last_error, attempt, len(buffer), attempts_without_progress,
+                       config.MAX_RETRIES + 1, wait_seconds)
         time.sleep(wait_seconds)
-    raise RuntimeError(f"gave up after {config.MAX_RETRIES + 1} attempts: {last_error}")
+    raise RuntimeError(f"gave up after {attempt} attempts "
+                       f"({attempts_without_progress} without progress): {last_error}")
