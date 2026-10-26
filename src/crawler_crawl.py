@@ -1,10 +1,13 @@
 """Download every version of every discovered paper into the corpus folder."""
 import logging
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import crawler_config as config
 from crawler_download import download_source, extract_source, write_files
-from crawler_utils import PermanentRequestError, RateLimiter, read_json, to_folder_name, write_json
+from crawler_utils import (PermanentRequestError, StopRequested, make_session, read_json,
+                           to_folder_name, write_json)
 
 LOGGER = logging.getLogger("crawler.crawl")
 
@@ -12,7 +15,8 @@ LOGGER = logging.getLogger("crawler.crawl")
 def crawl_version(session, limiter, version_info, version_dir):
     """Download one version, keep .tex/.bib only, write metadata.json (the 'done' marker).
 
-    Returns a stats row. Status: ok (TeX kept), no_tex (empty record), failed (not marked done).
+    Returns a stats row, or None when the run was stopped before the download finished.
+    Status: ok (TeX kept), no_tex (empty record), failed (not marked done, retried in a later pass).
     """
     marker = version_dir / "metadata.json"
     if marker.exists():  # resume
@@ -23,7 +27,7 @@ def crawl_version(session, limiter, version_info, version_dir):
     stats = {"arxiv_id": version_info["arxiv_id"], "version": version_info["version"],
              "status": "failed", "source_kind": None, "archive_bytes": 0,
              "uncompressed_bytes": 0, "kept_bytes": 0, "n_tex": 0, "n_bib": 0,
-             "seconds": 0.0, "error": None}
+             "seconds": 0.0, "attempts": 1, "error": None}
     try:
         raw_bytes = download_source(session, limiter, versioned_id)
         files, uncompressed_bytes, kind = extract_source(raw_bytes)
@@ -34,10 +38,12 @@ def crawl_version(session, limiter, version_info, version_dir):
                      kept_bytes=sum(len(content) for content in files.values()),
                      n_tex=sum(1 for name in files if name.lower().endswith(".tex")),
                      n_bib=sum(1 for name in files if name.lower().endswith(".bib")))
+    except StopRequested:
+        return None
     except PermanentRequestError as error:   # e.g. 404: no source for this version
         stats.update(status="no_tex", source_kind="unavailable", error=str(error))
         version_dir.mkdir(parents=True, exist_ok=True)
-    except Exception as error:  # noqa: BLE001 - logged and retried on the next run
+    except Exception as error:  # noqa: BLE001 - logged and retried in the next pass / run
         stats["error"] = str(error)
         LOGGER.error("Download failed for %s: %s", versioned_id, error)
     stats["seconds"] = time.perf_counter() - started
@@ -49,38 +55,76 @@ def crawl_version(session, limiter, version_info, version_dir):
     return stats
 
 
-def crawl_all_sources(session, papers, corpus_dir, stop_event):
-    """Crawl all versions of all found papers sequentially (one arXiv connection).
+def crawl_all_sources(papers, corpus_dir, stop_event, limiter, workers=None, max_passes=None):
+    """Crawl all versions of all found papers; returns one stats row per version.
 
-    Stops early (set stop_event) after MAX_CONSECUTIVE_FAILURES_ARXIV failed versions in a row,
-    which usually means HTTP 429/403 (blocked). Progress is kept; rerun later to resume.
+    * One rate limiter (`limiter`) paces every worker, so `workers` > 1 only overlaps transfer time.
+    * Failed versions are queued and retried in up to `max_passes` passes of the same run, each
+      preceded by a longer cooldown, so one run normally ends with a complete corpus.
+    * The run stops itself (progress is kept, rerun to resume) when the host keeps throttling
+      (limiter.hard_blocked()) or MAX_CONSECUTIVE_FAILURES versions fail in a row.
     """
-    consecutive_failures = 0
-    consecutive_http_failures = 0
-    limiter = RateLimiter(config.ARXIV_DELAY_SECONDS)
-    version_rows = []
+    workers = workers or config.DOWNLOAD_WORKERS
+    max_passes = max_passes or config.MAX_PASSES
+    tasks = []
     for paper in papers.values():
         if not paper["found"]:
             continue
         paper_dir = corpus_dir / to_folder_name(paper["arxiv_id"])
-        for version_info in paper["versions"]:
-            if stop_event.is_set():
-                return version_rows
-            version_dir = paper_dir / f"v{version_info['version']}"
-            stats = crawl_version(session, limiter, version_info, version_dir)
-            version_rows.append(stats)
-            failed = stats["status"] == "failed"
-            consecutive_failures = consecutive_failures + 1 if failed else 0
-            consecutive_http_failures = (consecutive_http_failures + 1
-                                         if failed and "HTTP" in (stats["error"] or "") else 0)
-            if (consecutive_http_failures >= config.MAX_CONSECUTIVE_FAILURES_ARXIV
-                    or consecutive_failures >= config.MAX_CONSECUTIVE_NETWORK_FAILURES):
-                LOGGER.error("STOP: %d consecutive failures (%d with HTTP errors, likely 429/403 or no network). "
-                             "Wait 10-15 minutes, then rerun the same command to resume.",
-                             consecutive_failures, consecutive_http_failures)
-                stop_event.set()
-                return version_rows
         write_json(paper_dir / "paper.json", {key: paper[key] for key in (
             "arxiv_id", "title", "authors", "submission_date", "revised_dates",
             "venue", "latest_version", "versions")})
-    return version_rows
+        tasks += [(info, paper_dir / f"v{info['version']}") for info in paper["versions"]]
+
+    final, lock, state = {}, threading.Lock(), {"consecutive_failures": 0}
+    local = threading.local()
+
+    def work(task):
+        if stop_event.is_set():
+            return
+        version_info, version_dir = task
+        if not hasattr(local, "session"):
+            local.session = make_session()
+        stats = crawl_version(local.session, limiter, version_info, version_dir)
+        if stats is None:
+            return
+        key = (version_info["arxiv_id"], version_info["version"])
+        with lock:
+            earlier = final.get(key)
+            if earlier:   # time of the failed earlier attempts belongs to this version too
+                stats["seconds"] += earlier["seconds"]
+                stats["attempts"] = earlier.get("attempts", 1) + 1
+            final[key] = stats
+            failed = stats["status"] == "failed"
+            state["consecutive_failures"] = state["consecutive_failures"] + 1 if failed else 0
+            if (limiter.hard_blocked() or state["consecutive_failures"] >= config.MAX_CONSECUTIVE_FAILURES) \
+                    and not stop_event.is_set():
+                LOGGER.error("STOP: %d consecutive failures, %d consecutive throttles on %s. Progress is "
+                             "saved: wait 10-15 minutes, then rerun the SAME command to resume.",
+                             state["consecutive_failures"], limiter.consecutive_throttles, limiter.name)
+                stop_event.set()
+
+    try:
+        for pass_number in range(1, max_passes + 1):
+            pending = [task for task in tasks
+                       if pass_number == 1 or final.get(
+                           (task[0]["arxiv_id"], task[0]["version"]), {}).get("status") == "failed"]
+            if not pending or stop_event.is_set():
+                break
+            if pass_number > 1:
+                cooldown = config.PASS_COOLDOWN_SECONDS * (pass_number - 1)
+                LOGGER.warning("Pass %d/%d: retrying %d failed versions after a %.0f s cooldown",
+                               pass_number, max_passes, len(pending), cooldown)
+                if stop_event.wait(cooldown):
+                    break
+            state["consecutive_failures"] = 0
+            if workers == 1:
+                for task in pending:
+                    work(task)
+            else:
+                with ThreadPoolExecutor(max_workers=workers) as pool:
+                    list(pool.map(work, pending))
+    except KeyboardInterrupt:   # Ctrl+C: keep what is done, let the other worker stop cleanly
+        LOGGER.warning("Interrupted by user; saving partial results.")
+        stop_event.set()
+    return list(final.values())

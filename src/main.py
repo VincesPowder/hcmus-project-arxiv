@@ -1,7 +1,7 @@
 """End-to-end arXiv crawler for Milestone 1.
 
 Examples:
-    python src/main.py --ids-file ids.txt
+    python src/main.py --ids-file group_ids.txt      # whole group in one run (ids and/or A..B ranges)
     python src/main.py --range 2310.00001 2310.00050
 """
 import argparse
@@ -15,20 +15,23 @@ from pathlib import Path
 
 import pandas as pd
 
+import crawler_config as config
 from crawler_crawl import crawl_all_sources
 from crawler_discovery import discover_papers, make_client
 from crawler_monitor import ResourceMonitor
 from crawler_references import crawl_all_references
 from crawler_tables import build_tables
-from crawler_utils import (generate_id_range, make_session, read_id_file, read_json,
-                           to_folder_name, write_json)
+from crawler_utils import (AdaptiveRateLimiter, chunk_list, generate_id_range, make_session,
+                           read_id_file, read_json, to_folder_name, write_json)
 
 
 def parse_arguments():
     """Parse command-line options."""
     parser = argparse.ArgumentParser(description="arXiv crawler (Milestone 1)")
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--ids-file", help="text file with one arXiv id per line")
+    group.add_argument("--ids-file",
+                       help="text file, one entry per line: an arXiv id or an inclusive range A..B "
+                            "(merge every member's range here to crawl the whole group in one run)")
     group.add_argument("--range", nargs=2, metavar=("FIRST", "LAST"),
                        help="inclusive id range inside one month, e.g. 2310.00001 2310.00050")
     parser.add_argument("--corpus-dir", default="corpus", help="crawled .tex/.bib files go here")
@@ -37,6 +40,11 @@ def parse_arguments():
     parser.add_argument("--skip-references", action="store_true",
                         help="do not call Semantic Scholar now (rerun without this flag later to fill references)")
     parser.add_argument("--limit", type=int, default=None, help="only crawl the first N ids (smoke test)")
+    parser.add_argument("--workers", type=int, default=config.DOWNLOAD_WORKERS,
+                        help="parallel arXiv download threads sharing ONE rate limiter (default 1; "
+                             "benchmark before raising it)")
+    parser.add_argument("--passes", type=int, default=config.MAX_PASSES,
+                        help="how many times failed items are retried inside the same run")
     return parser.parse_args()
 
 
@@ -76,36 +84,71 @@ def main():
     monitor.start()
     wall_started = time.perf_counter()
 
-    # Phase 1: entry discovery (arXiv API, sequential, 3 s pacing inside arxiv.Client)
+    # Phase 1: entry discovery (arXiv API, sequential, 3 s pacing inside arxiv.Client).
+    # Saved block by block; a rerun only redoes ids that are missing or whose lookup failed.
     discovery_file, discovery_time_file = work_dir / "discovery.json", work_dir / "discovery_seconds.json"
-    cached = read_json(discovery_file) if discovery_file.exists() and discovery_time_file.exists() else {}
-    if base_ids and all(base_id in cached for base_id in base_ids):
-        papers = {base_id: cached[base_id] for base_id in base_ids}
-        discovery_seconds = read_json(discovery_time_file)["seconds"]   # time of the original discovery
-        logging.info("Reusing saved discovery (%d ids, originally %.0f s)", len(papers), discovery_seconds)
-    else:
-        discovery_started = time.perf_counter()
-        papers = discover_papers(make_client(), base_ids)
-        discovery_seconds = time.perf_counter() - discovery_started
-        write_json(discovery_file, papers)
-        write_json(discovery_time_file, {"seconds": discovery_seconds})
+    cached = read_json(discovery_file) if discovery_file.exists() else {}
+    discovery_seconds = read_json(discovery_time_file)["seconds"] if discovery_time_file.exists() else 0.0
+    client = None
+    for pass_number in range(1, arguments.passes + 1):
+        missing = [base_id for base_id in base_ids
+                   if base_id not in cached or cached[base_id].get("discovery_failed")]
+        if not missing:
+            break
+        cooldown = config.PASS_COOLDOWN_SECONDS * (pass_number - 1)
+        if cooldown:
+            logging.warning("Discovery pass %d/%d: %d ids to redo after a %.0f s cooldown",
+                            pass_number, arguments.passes, len(missing), cooldown)
+        block_started = time.perf_counter()
+        try:
+            time.sleep(cooldown)
+            client = client or make_client()
+            for block in chunk_list(missing, config.DISCOVERY_BLOCK):
+                cached.update(discover_papers(client, block))
+                discovery_seconds += time.perf_counter() - block_started
+                block_started = time.perf_counter()
+                write_json(discovery_file, cached)
+                write_json(discovery_time_file, {"seconds": discovery_seconds})
+                logging.info("Discovery: %d of %d ids resolved", sum(1 for i in base_ids if i in cached),
+                             len(base_ids))
+        except KeyboardInterrupt:
+            logging.warning("Interrupted during discovery; progress is saved, rerun to resume.")
+            sys.exit(1)
+    papers = {base_id: cached[base_id] for base_id in base_ids if base_id in cached}
+    unresolved = [base_id for base_id in base_ids if base_id not in papers or papers[base_id].get("discovery_failed")]
+    if unresolved:
+        logging.error("%d ids stay (partly) unresolved after %d passes, e.g. %s. Rerun later to fill them.",
+                      len(unresolved), arguments.passes, unresolved[:3])
+    papers = {base_id: papers.get(base_id, {"arxiv_id": base_id, "found": False, "versions": [],
+                                            "discovery_failed": True}) for base_id in base_ids}
 
     # Phase 2: sources (export.arxiv.org) and references (Semantic Scholar) run in parallel,
-    # because they hit different hosts with independent rate limits.
+    # because they hit different hosts with independent rate limits. Each host has ONE adaptive
+    # limiter shared by all its threads: a 429 pauses that host for everybody and widens its gap.
     found_ids = [paper_id for paper_id, paper in papers.items() if paper["found"]]
     stop_event = threading.Event()              # arXiv blocked / Ctrl+C: stop everything
     references_stop_event = threading.Event()   # Semantic Scholar trouble: stop references only
+    arxiv_limiter = AdaptiveRateLimiter("arxiv", config.ARXIV_DELAY_SECONDS,
+                                        config.ARXIV_MAX_INTERVAL_SECONDS, stop_event)
+    s2_limiter = AdaptiveRateLimiter("s2", config.S2_DELAY_WITH_KEY_SECONDS if api_key
+                                     else config.S2_DELAY_NO_KEY_SECONDS,
+                                     config.S2_MAX_INTERVAL_SECONDS, stop_event)
     with ThreadPoolExecutor(max_workers=1) as pool:
         reference_future = pool.submit(crawl_all_references, make_session(),
                                        [] if arguments.skip_references else found_ids,
-                                       corpus_dir, to_folder_name, stop_event, references_stop_event, api_key)
+                                       corpus_dir, to_folder_name, stop_event, references_stop_event,
+                                       s2_limiter, api_key)
         try:
-            version_rows = crawl_all_sources(make_session(), papers, corpus_dir, stop_event)
-        except KeyboardInterrupt:   # Ctrl+C: stop both workers cleanly, keep progress
-            logging.warning("Interrupted by user; saving partial results.")
+            version_rows = crawl_all_sources(papers, corpus_dir, stop_event, arxiv_limiter,
+                                             arguments.workers, arguments.passes)
+        except KeyboardInterrupt:   # Ctrl+C outside the crawl loop: stop both workers cleanly
             stop_event.set()
             version_rows = []
-        reference_rows = reference_future.result()
+        try:
+            reference_rows = reference_future.result()
+        except KeyboardInterrupt:
+            stop_event.set()
+            reference_rows = reference_future.result()
 
     papers_table, references_table = build_tables(corpus_dir, work_dir / "tables")
     wall_seconds = time.perf_counter() - wall_started
@@ -138,7 +181,8 @@ def main():
                "discovery_seconds": discovery_seconds, "wall_seconds": wall_seconds,
                "corpus_bytes": directory_size_bytes(corpus_dir),
                "n_papers_rows": len(papers_table), "n_reference_rows": len(references_table),
-               **resources}
+               "download_workers": arguments.workers,
+               **arxiv_limiter.summary(), **s2_limiter.summary(), **resources}
     write_json(work_dir / "metrics.json", metrics)
     logging.info("Finished in %.1f s. Metrics: %s", wall_seconds, metrics)
     if stop_event.is_set():

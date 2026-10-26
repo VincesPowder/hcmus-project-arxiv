@@ -1,8 +1,10 @@
 corpus/
 work/
 __pycache__/
+.venv/
+logs/
 test_corpus/
 test_work/
-logs/
-.venv/
+tests/
+group_ids.txt
 *.parquet
