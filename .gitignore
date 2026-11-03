@@ -5,6 +5,5 @@ __pycache__/
 logs/
 test_corpus/
 test_work/
-tests/
-group_ids.txt
+parsed/
 *.parquet
