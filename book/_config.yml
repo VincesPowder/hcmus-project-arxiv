@@ -1,0 +1,29 @@
+# Jupyter Book configuration — IntroDS, Nhóm 2
+title: "IntroDS · Nhóm 2 — arXiv Crawling & Hierarchical Parsing"
+author: "2"
+logo: ""
+
+# Do not execute notebooks during the build: the notebooks need the local
+# arXiv corpus / network access, which are not present on CI. Results are
+# reported in the markdown pages (milestone1.md / milestone2.md).
+execute:
+  execute_notebooks: "off"
+
+repository:
+  url: https://github.com/VincesPowder/hcmus-project-arxiv
+  branch: main
+  path_to_book: book
+
+html:
+  use_repository_button: true
+  use_issues_button: true
+  use_edit_page_button: true
+
+launch_buttons:
+  notebook_interface: "classic"
+
+parse:
+  myst_enable_extensions:
+    - dollarmath
+    - amsmath
+    - linkify

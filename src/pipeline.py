@@ -26,17 +26,8 @@ from pathlib import Path
 
 from assemble import PaperAssembler, iter_nodes
 from gather import gather_version
-
-try:
-    from hier_parser import parse_document                       # B
-except ImportError:
-    from dev_stubs import parse_document
-    print("WARNING: hier_parser not found, using dev_stubs (placeholder parser)", file=sys.stderr)
-try:
-    from refs import extract_references, unify_bibtex, rename_cites  # C
-except ImportError:
-    from dev_stubs import extract_references, unify_bibtex, rename_cites
-    print("WARNING: refs not found, using dev_stubs (placeholder BibTeX)", file=sys.stderr)
+from hier_parser import parse_document                                    # B: real parser
+from refs import extract_references, unify_bibtex, rename_cites           # C: real references
 
 LOGGER = logging.getLogger("m2.pipeline")
 FAIL_STATUSES = {"parse_error", "timeout", "no_root", "not_downloaded"}
