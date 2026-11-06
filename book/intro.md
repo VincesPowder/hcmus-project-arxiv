@@ -7,13 +7,20 @@ Jupyter Book tổng hợp kết quả **Milestone 1 (Data Crawling)** và **Mile
 Corpus của cả nhóm gồm tổng cộng **20.000 publication**, được tổng hợp từ dữ liệu của tất cả thành viên; mỗi publication có thể có nhiều version. Toàn bộ mã nguồn nằm trong repository
 [`VincesPowder/hcmus-project-arxiv`](https://github.com/VincesPowder/hcmus-project-arxiv).
 
+| MSSV | Thành viên | Khoảng arXiv ID được phân công |
+|---|---|---|
+| 24127192 | Dương Huỳnh Minh Khôi | `2606.00734` – `2606.05733` |
+| 24127262 | Đỗ Thành Vinh | `2605.02338` – `2605.07337` |
+| 24127465 | Tạ Mai Như Ngọc | `2602.09870` – `2602.14869` |
+| 24127534 | Trương Quang Tạo | `2512.18231` – `2512.23230` |
+
 ## Tổng quan pipeline hai milestone
 
 ```{mermaid}
 flowchart LR
     A[arXiv API] -->|discovery| B[Download .tex/.bib<br/>mọi version]
     B --> C[S2 Graph API<br/>reference metadata]
-    B --> D[Corpus<br/>5000 papers]
+    B --> D[Corpus nhóm<br/>20.000 papers]
     C --> E[references.parquet]
     D --> F[gather<br/>compilation path]
     F --> G[hier_parser<br/>cây hierarchy]
