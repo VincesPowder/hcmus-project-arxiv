@@ -1,0 +1,971 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Milestone 2 — Hierarchical Parsing and Standardization &#8212; IntroDS · Nhóm 2 — arXiv Crawling &amp; Hierarchical Parsing</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="_static/scripts/fontawesome.js?digest=55c26ed414f5f8a31ebb"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb" />
+
+    <script src="_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="_static/togglebutton.js?v=b8b12719"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script async="async" src="_static/sphinx-thebe.js?v=c100c467"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'milestone2';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Milestone 1 — arXiv crawler on Colab" href="run_on_colab.html" />
+    <link rel="prev" title="Milestone 1 — Data Crawling" href="milestone1.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="_static/searchtools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search this book..."
+         aria-label="Search this book..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="intro.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">IntroDS · Nhóm 2 — arXiv Crawling & Hierarchical Parsing</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="intro.html">
+                    IntroDS — Nhóm 2
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="milestone1.html">Milestone 1 — Data Crawling</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Milestone 2 — Hierarchical Parsing and Standardization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="run_on_colab.html">Milestone 1 — arXiv crawler on Colab</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/VincesPowder/hcmus-project-arxiv" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/VincesPowder/hcmus-project-arxiv/edit/main/book/milestone2.ipynb" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/VincesPowder/hcmus-project-arxiv/issues/new?title=Issue%20on%20page%20%2Fmilestone2.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="_sources/milestone2.ipynb" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.ipynb</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Milestone 2 — Hierarchical Parsing and Standardization</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-cau-hinh-duong-dan">Step 1 — Cấu hình đường dẫn</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-kiem-ke-corpus">Step 2 — Kiểm kê corpus</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-demo-mot-publication-that">Step 3 — Demo một publication thật</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-kiem-tra-cac-quy-tac-bat-buoc">Step 4 — Kiểm tra các quy tắc bắt buộc</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-5-chay-batch-elements-hierarchy">Step 5 — Chạy batch (elements + hierarchy)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-6-trich-xuat-deduplicate-bibtex">Step 6 — Trích xuất &amp; deduplicate BibTeX</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-7-xac-minh-schema-3-bang-foreign-key-non-null">Step 7 — Xác minh schema 3 bảng + foreign key + non-null</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-8-bieu-do-bang-tong-hop-cho-report">Step 8 — Biểu đồ &amp; bảng tổng hợp cho report</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-9-phan-tich-chat-luong-du-lieu">Step 9 — Phân tích chất lượng dữ liệu</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-10-checklist-truoc-khi-nop">Step 10 — Checklist trước khi nộp</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="milestone-2-hierarchical-parsing-and-standardization">
+<h1>Milestone 2 — Hierarchical Parsing and Standardization<a class="headerlink" href="#milestone-2-hierarchical-parsing-and-standardization" title="Link to this heading">#</a></h1>
+<p>Notebook hoàn chỉnh chuyển corpus LaTeX thô (từ Milestone 1) thành dữ liệu có cấu trúc, chuẩn hoá và đã deduplicate, đúng ba bảng yêu cầu của đề: <code class="docutils literal notranslate"><span class="pre">elements</span></code>, <code class="docutils literal notranslate"><span class="pre">hierarchy</span></code> và <code class="docutils literal notranslate"><span class="pre">bibtex</span></code>.</p>
+<p><strong>Toàn bộ thuật toán nằm trong mã nguồn của repo</strong> — notebook chỉ cấu hình dữ liệu, gọi module và sinh thống kê/biểu đồ:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Module</p></th>
+<th class="head"><p>Nhiệm vụ</p></th>
+<th class="head"><p>Đầu ra</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">src/hierarchy.py</span></code></p></td>
+<td><p>gathering đa file, xây cây hierarchy, chuẩn hoá, dedup full-text</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">elements.csv</span></code>, <code class="docutils literal notranslate"><span class="pre">hierarchy.csv</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">src/references.py</span></code></p></td>
+<td><p>parse <code class="docutils literal notranslate"><span class="pre">.bib</span></code> + <code class="docutils literal notranslate"><span class="pre">\bibitem</span></code>, dedup reference, union fields</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">bibtex.csv</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Pipeline: <strong>gather → parse → (references) → dedup → 3 bảng + manifest + summary + biểu đồ</strong>.</p>
+<section id="step-1-cau-hinh-duong-dan">
+<h2>Step 1 — Cấu hình đường dẫn<a class="headerlink" href="#step-1-cau-hinh-duong-dan" title="Link to this heading">#</a></h2>
+<p>Tự tìm project root để chạy được cả local lẫn Colab. <code class="docutils literal notranslate"><span class="pre">CORPUS_ROOT</span></code> trỏ tới thư mục chứa các publication (không trỏ thẳng vào <code class="docutils literal notranslate"><span class="pre">v1</span></code>). Đổi corpus của thành viên khác chỉ cần đổi <code class="docutils literal notranslate"><span class="pre">CORPUS_ROOT</span></code>, không sửa thuật toán.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">csv</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">Counter</span><span class="p">,</span> <span class="n">defaultdict</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">find_project_root</span><span class="p">(</span><span class="n">start</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="p">[</span><span class="n">start</span><span class="o">.</span><span class="n">resolve</span><span class="p">(),</span> <span class="o">*</span><span class="n">start</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parents</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">candidate</span> <span class="o">/</span> <span class="s1">'src'</span> <span class="o">/</span> <span class="s1">'hierarchy.py'</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">candidate</span>
+    <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="s1">'Không tìm thấy src/hierarchy.py. Hãy cd vào repository trước.'</span><span class="p">)</span>
+
+<span class="n">PROJECT_ROOT</span> <span class="o">=</span> <span class="n">find_project_root</span><span class="p">(</span><span class="n">Path</span><span class="o">.</span><span class="n">cwd</span><span class="p">())</span>
+<span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">PROJECT_ROOT</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="p">:</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">PROJECT_ROOT</span><span class="p">))</span>
+
+<span class="c1"># ---- mã nguồn của repo ----</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">src.hierarchy</span><span class="w"> </span><span class="kn">import</span> <span class="n">discover_publications</span><span class="p">,</span> <span class="n">parse_corpus</span><span class="p">,</span> <span class="n">parse_publication</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">src.references</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_bibtex</span>
+
+<span class="n">default_corpus</span> <span class="o">=</span> <span class="n">PROJECT_ROOT</span> <span class="o">/</span> <span class="s1">'2512.18231-2512.23230'</span> <span class="o">/</span> <span class="s1">'corpus'</span>
+<span class="n">CORPUS_ROOT</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'CORPUS_ROOT'</span><span class="p">,</span> <span class="n">default_corpus</span><span class="p">))</span>
+<span class="n">OUTPUT_DIR</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'M2_OUTPUT_DIR'</span><span class="p">,</span> <span class="n">PROJECT_ROOT</span> <span class="o">/</span> <span class="s1">'output'</span> <span class="o">/</span> <span class="s1">'milestone2_notebook'</span><span class="p">))</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s1">'PROJECT_ROOT ='</span><span class="p">,</span> <span class="n">PROJECT_ROOT</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">'CORPUS_ROOT  ='</span><span class="p">,</span> <span class="n">CORPUS_ROOT</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">'OUTPUT_DIR   ='</span><span class="p">,</span> <span class="n">OUTPUT_DIR</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">CORPUS_ROOT</span><span class="o">.</span><span class="n">is_dir</span><span class="p">(),</span> <span class="sa">f</span><span class="s1">'Corpus không tồn tại: </span><span class="si">{</span><span class="n">CORPUS_ROOT</span><span class="si">}</span><span class="s1">'</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="step-2-kiem-ke-corpus">
+<h2>Step 2 — Kiểm kê corpus<a class="headerlink" href="#step-2-kiem-ke-corpus" title="Link to this heading">#</a></h2>
+<p>Phát hiện sớm lỗi mount/copy và xác nhận layout. Số version không có <code class="docutils literal notranslate"><span class="pre">.tex</span></code> vẫn được parser ghi là <code class="docutils literal notranslate"><span class="pre">empty</span></code> (không bỏ qua im lặng), đúng yêu cầu coverage.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">publications</span> <span class="o">=</span> <span class="n">discover_publications</span><span class="p">(</span><span class="n">CORPUS_ROOT</span><span class="p">)</span>
+<span class="n">version_dirs</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">v</span> <span class="k">for</span> <span class="n">publication</span> <span class="ow">in</span> <span class="n">publications</span>
+    <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">publication</span><span class="o">.</span><span class="n">iterdir</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">is_dir</span><span class="p">()</span> <span class="ow">and</span> <span class="n">re</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="sa">r</span><span class="s1">'v\d+'</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">IGNORECASE</span><span class="p">)</span>
+<span class="p">]</span>
+<span class="n">versions_with_tex</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">any</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">rglob</span><span class="p">(</span><span class="s1">'*.tex'</span><span class="p">))</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">version_dirs</span><span class="p">)</span>
+<span class="n">bib_files</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">any</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">rglob</span><span class="p">(</span><span class="s1">'*.bib'</span><span class="p">))</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">version_dirs</span><span class="p">)</span>
+
+<span class="n">max_versions</span><span class="p">,</span> <span class="n">most_versions</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">None</span>
+<span class="k">for</span> <span class="n">publication</span> <span class="ow">in</span> <span class="n">publications</span><span class="p">:</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">publication</span><span class="o">.</span><span class="n">iterdir</span><span class="p">()</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">is_dir</span><span class="p">()</span> <span class="ow">and</span> <span class="n">re</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="sa">r</span><span class="s1">'v\d+'</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">IGNORECASE</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="n">max_versions</span><span class="p">:</span>
+        <span class="n">max_versions</span><span class="p">,</span> <span class="n">most_versions</span> <span class="o">=</span> <span class="n">n</span><span class="p">,</span> <span class="n">publication</span><span class="o">.</span><span class="n">name</span>
+
+<span class="n">inventory</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">'publications'</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">publications</span><span class="p">),</span>
+    <span class="s1">'versions'</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">version_dirs</span><span class="p">),</span>
+    <span class="s1">'versions_with_tex'</span><span class="p">:</span> <span class="n">versions_with_tex</span><span class="p">,</span>
+    <span class="s1">'versions_without_tex'</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">version_dirs</span><span class="p">)</span> <span class="o">-</span> <span class="n">versions_with_tex</span><span class="p">,</span>
+    <span class="s1">'versions_with_bib'</span><span class="p">:</span> <span class="n">bib_files</span><span class="p">,</span>
+    <span class="s1">'max_versions'</span><span class="p">:</span> <span class="n">max_versions</span><span class="p">,</span>
+    <span class="s1">'most_versions_publication'</span><span class="p">:</span> <span class="n">most_versions</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">inventory</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">'Ví dụ publication:'</span><span class="p">,</span> <span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">publications</span><span class="p">[:</span><span class="mi">5</span><span class="p">]])</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="step-3-demo-mot-publication-that">
+<h2>Step 3 — Demo một publication thật<a class="headerlink" href="#step-3-demo-mot-publication-that" title="Link to this heading">#</a></h2>
+<p>Xem cây trước khi chạy batch. Parser tìm file <code class="docutils literal notranslate"><span class="pre">\documentclass</span></code>, lần theo <code class="docutils literal notranslate"><span class="pre">\input</span></code>/<code class="docutils literal notranslate"><span class="pre">\include</span></code> (bỏ file thừa), nhận diện cấp động <code class="docutils literal notranslate"><span class="pre">part</span></code>→<code class="docutils literal notranslate"><span class="pre">subparagraph</span></code>, giữ starred heading + Appendix + Acknowledgements, bỏ bibliography, tạo list/item, và giữ figure/table/equation thành leaf.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">PREFERRED_DEMO</span> <span class="o">=</span> <span class="s1">'2512-20753'</span>  <span class="c1"># đổi thành folder của teammate nếu muốn</span>
+<span class="n">demo_dir</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">publications</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">PREFERRED_DEMO</span><span class="p">),</span> <span class="n">publications</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="n">demo</span> <span class="o">=</span> <span class="n">parse_publication</span><span class="p">(</span><span class="n">demo_dir</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Publication: </span><span class="si">{</span><span class="n">demo</span><span class="o">.</span><span class="n">arxiv_id</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Versions: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">demo</span><span class="o">.</span><span class="n">versions</span><span class="p">)</span><span class="si">}</span><span class="s1"> | distinct elements: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">demo</span><span class="o">.</span><span class="n">elements</span><span class="p">)</span><span class="si">}</span><span class="s1"> | edges: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">demo</span><span class="o">.</span><span class="n">hierarchy</span><span class="p">)</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">demo</span><span class="o">.</span><span class="n">versions</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'  v</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">version</span><span class="si">}</span><span class="s1">: status=</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">status</span><span class="si">}</span><span class="s1">, root=</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">root_file</span><span class="si">}</span><span class="s1">, '</span>
+          <span class="sa">f</span><span class="s1">'files=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">source_files</span><span class="p">)</span><span class="si">}</span><span class="s1">, warnings=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">warnings</span><span class="p">)</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ok_version</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">demo</span><span class="o">.</span><span class="n">versions</span> <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="s1">'ok'</span><span class="p">),</span> <span class="n">demo</span><span class="o">.</span><span class="n">versions</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">ok_version</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">pretty</span><span class="p">(</span><span class="n">max_content</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">max_depth</span><span class="o">=</span><span class="mi">3</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="step-4-kiem-tra-cac-quy-tac-bat-buoc">
+<h2>Step 4 — Kiểm tra các quy tắc bắt buộc<a class="headerlink" href="#step-4-kiem-tra-cac-quy-tac-bat-buoc" title="Link to this heading">#</a></h2>
+<p>Biến yêu cầu đề bài thành điều kiện tái chạy được: bibliography không lọt vào hierarchy, list chỉ chứa <code class="docutils literal notranslate"><span class="pre">item</span></code>, block math chuẩn hoá về <code class="docutils literal notranslate"><span class="pre">\begin{equation}</span></code>, figure/table là leaf, và dedup full-text giữa các version.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">nodes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">ok_version</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">walk</span><span class="p">())</span>
+<span class="n">kind_counts</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">kind</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">)</span>
+<span class="n">all_content</span> <span class="o">=</span> <span class="s1">'</span><span class="se">\n</span><span class="s1">'</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">content</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s1">'Node counts:'</span><span class="p">,</span> <span class="nb">dict</span><span class="p">(</span><span class="n">kind_counts</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">'Starred headings:'</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s1">'heading'</span> <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">numbered</span> <span class="ow">is</span> <span class="kc">False</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">'Appendix headings:'</span><span class="p">,</span> <span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">content</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">nodes</span> <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s1">'heading'</span> <span class="ow">and</span> <span class="s1">'appendi'</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">lower</span><span class="p">()])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">'Acknowledgement headings:'</span><span class="p">,</span> <span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">content</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">nodes</span> <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s1">'heading'</span> <span class="ow">and</span> <span class="s1">'acknow'</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">lower</span><span class="p">()])</span>
+
+<span class="k">assert</span> <span class="s1">'</span><span class="se">\\</span><span class="s1">begin</span><span class="si">{thebibliography}</span><span class="s1">'</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">all_content</span>
+<span class="k">assert</span> <span class="s1">'</span><span class="se">\\</span><span class="s1">bibliography{'</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">all_content</span>
+<span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">child</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s1">'item'</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">nodes</span> <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s1">'list'</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">children</span><span class="p">)</span>
+<span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">'</span><span class="se">\\</span><span class="s1">begin</span><span class="si">{equation}</span><span class="s1">'</span><span class="p">)</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">nodes</span> <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s1">'block_formula'</span><span class="p">)</span>
+<span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">children</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">nodes</span> <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s1">'figure'</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">demo</span><span class="o">.</span><span class="n">versions</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+    <span class="n">first</span><span class="p">,</span> <span class="n">second</span> <span class="o">=</span> <span class="n">demo</span><span class="o">.</span><span class="n">versions</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">demo</span><span class="o">.</span><span class="n">versions</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="p">{</span><span class="n">n</span><span class="o">.</span><span class="n">content</span><span class="p">:</span> <span class="n">n</span><span class="o">.</span><span class="n">element_id</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">first</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">walk</span><span class="p">()</span> <span class="k">if</span> <span class="n">n</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s1">'sentence'</span><span class="p">}</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="p">{</span><span class="n">n</span><span class="o">.</span><span class="n">content</span><span class="p">:</span> <span class="n">n</span><span class="o">.</span><span class="n">element_id</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">second</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">walk</span><span class="p">()</span> <span class="k">if</span> <span class="n">n</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s1">'sentence'</span><span class="p">}</span>
+    <span class="n">shared</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">same_id</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">==</span> <span class="n">s</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">shared</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Cross-version shared sentences: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">shared</span><span class="p">)</span><span class="si">}</span><span class="s1"> | same element_id: </span><span class="si">{</span><span class="n">same_id</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">same_id</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s1">'Các invariant của hierarchy: PASS'</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="step-5-chay-batch-elements-hierarchy">
+<h2>Step 5 — Chạy batch (elements + hierarchy)<a class="headerlink" href="#step-5-chay-batch-elements-hierarchy" title="Link to this heading">#</a></h2>
+<p>Mặc định chạy smoke 25 publication để sinh đủ ba bảng + biểu đồ (vài giây). Khi <code class="docutils literal notranslate"><span class="pre">versions_error=0</span></code>, đổi <code class="docutils literal notranslate"><span class="pre">BATCH_LIMIT=None</span></code> để chạy toàn bộ corpus (khoảng 20–40 phút).</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">RUN_BATCH</span> <span class="o">=</span> <span class="kc">True</span>            <span class="c1"># True: chạy batch để sinh đủ 3 bảng + biểu đồ; False: chỉ xem demo</span>
+<span class="n">BATCH_LIMIT</span> <span class="o">=</span> <span class="mi">25</span>            <span class="c1"># None = toàn bộ corpus (20–40 phút)</span>
+<span class="n">BIBTEX_LIMIT</span> <span class="o">=</span> <span class="n">BATCH_LIMIT</span>  <span class="c1"># giữ đồng bộ với batch (None = toàn bộ)</span>
+
+<span class="k">if</span> <span class="n">RUN_BATCH</span><span class="p">:</span>
+    <span class="n">summary</span> <span class="o">=</span> <span class="n">parse_corpus</span><span class="p">(</span><span class="n">CORPUS_ROOT</span><span class="p">,</span> <span class="n">OUTPUT_DIR</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="n">BATCH_LIMIT</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">summary</span><span class="o">.</span><span class="n">as_dict</span><span class="p">(),</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">'Chưa chạy batch. Đặt RUN_BATCH = True sau khi demo một publication đã đúng.'</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="step-6-trich-xuat-deduplicate-bibtex">
+<h2>Step 6 — Trích xuất &amp; deduplicate BibTeX<a class="headerlink" href="#step-6-trich-xuat-deduplicate-bibtex" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">src.references.extract_bibtex</span></code> đọc <code class="docutils literal notranslate"><span class="pre">\bibitem</span></code> <strong>chỉ từ compilation path</strong> (không quét mọi <code class="docutils literal notranslate"><span class="pre">.tex</span></code>) và các file <code class="docutils literal notranslate"><span class="pre">.bib</span></code> được khai báo, rồi deduplicate cross-version (union fields, một <code class="docutils literal notranslate"><span class="pre">citation_key</span></code>). Kết quả ghi <code class="docutils literal notranslate"><span class="pre">bibtex.csv</span></code> + <code class="docutils literal notranslate"><span class="pre">bibtex_aliases.json</span></code> vào cùng <code class="docutils literal notranslate"><span class="pre">OUTPUT_DIR</span></code>.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">RUN_BATCH</span><span class="p">:</span>
+    <span class="n">BIBTEX_STATS</span><span class="p">,</span> <span class="n">bibtex_rows</span><span class="p">,</span> <span class="n">bibtex_aliases</span> <span class="o">=</span> <span class="n">extract_bibtex</span><span class="p">(</span><span class="n">CORPUS_ROOT</span><span class="p">,</span> <span class="n">OUTPUT_DIR</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="n">BIBTEX_LIMIT</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">BIBTEX_STATS</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">BIBTEX_STATS</span><span class="p">,</span> <span class="n">bibtex_rows</span><span class="p">,</span> <span class="n">bibtex_aliases</span> <span class="o">=</span> <span class="p">{},</span> <span class="p">[],</span> <span class="p">{}</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">'Chưa chạy BibTeX. Chạy Step 5 trước (RUN_BATCH=True).'</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="step-7-xac-minh-schema-3-bang-foreign-key-non-null">
+<h2>Step 7 — Xác minh schema 3 bảng + foreign key + non-null<a class="headerlink" href="#step-7-xac-minh-schema-3-bang-foreign-key-non-null" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">elements</span></code> dùng chung giữa các version: cùng nội dung sau cleanup → cùng <code class="docutils literal notranslate"><span class="pre">element_id</span></code> (ví dụ <code class="docutils literal notranslate"><span class="pre">2512.20753#s17</span></code>). <code class="docutils literal notranslate"><span class="pre">hierarchy</span></code> lưu cạnh riêng theo version nên cùng một câu có thể gắn vào hai parent khác nhau ở v1/v2. Bước này đọc header từng CSV, kiểm tra <code class="docutils literal notranslate"><span class="pre">hierarchy.element_id</span></code> / <code class="docutils literal notranslate"><span class="pre">hierarchy.parent_id</span></code> đều nằm trong <code class="docutils literal notranslate"><span class="pre">elements.element_id</span></code>, và cột bắt buộc không null (streaming, không nạp toàn bộ RAM).</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">expected_headers</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">'elements.csv'</span><span class="p">:</span> <span class="p">[</span><span class="s1">'element_id'</span><span class="p">,</span> <span class="s1">'arxiv_id'</span><span class="p">,</span> <span class="s1">'kind'</span><span class="p">,</span> <span class="s1">'content'</span><span class="p">],</span>
+    <span class="s1">'hierarchy.csv'</span><span class="p">:</span> <span class="p">[</span><span class="s1">'arxiv_id'</span><span class="p">,</span> <span class="s1">'version'</span><span class="p">,</span> <span class="s1">'element_id'</span><span class="p">,</span> <span class="s1">'parent_id'</span><span class="p">],</span>
+    <span class="s1">'bibtex.csv'</span><span class="p">:</span> <span class="p">[</span><span class="s1">'arxiv_id'</span><span class="p">,</span> <span class="s1">'citation_key'</span><span class="p">,</span> <span class="s1">'entry_type'</span><span class="p">,</span> <span class="s1">'title'</span><span class="p">,</span> <span class="s1">'authors'</span><span class="p">,</span> <span class="s1">'year'</span><span class="p">,</span> <span class="s1">'doi'</span><span class="p">,</span> <span class="s1">'journal'</span><span class="p">,</span> <span class="s1">'url'</span><span class="p">],</span>
+<span class="p">}</span>
+
+<span class="k">for</span> <span class="n">filename</span><span class="p">,</span> <span class="n">expected</span> <span class="ow">in</span> <span class="n">expected_headers</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">OUTPUT_DIR</span> <span class="o">/</span> <span class="n">filename</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'⚠ </span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s1"> chưa tồn tại — bỏ qua.'</span><span class="p">)</span>
+        <span class="k">continue</span>
+    <span class="k">with</span> <span class="n">path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s1">'utf-8'</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+        <span class="n">reader</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">DictReader</span><span class="p">(</span><span class="n">fh</span><span class="p">)</span>
+        <span class="n">header</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">fieldnames</span>
+        <span class="n">sample</span> <span class="o">=</span> <span class="p">[</span><span class="nb">next</span><span class="p">(</span><span class="n">reader</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+    <span class="n">ok</span> <span class="o">=</span> <span class="n">header</span> <span class="o">==</span> <span class="n">expected</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'=== </span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s1"> ===  header </span><span class="si">{</span><span class="s2">"✓"</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">ok</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s2">"✗"</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">'  columns:'</span><span class="p">,</span> <span class="n">header</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">sample</span><span class="p">:</span>
+        <span class="n">short</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="p">(</span><span class="n">v</span><span class="p">[:</span><span class="mi">60</span><span class="p">]</span> <span class="o">+</span> <span class="s1">'…'</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">60</span> <span class="k">else</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">row</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">'  '</span><span class="p">,</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">short</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">()</span>
+
+<span class="n">elements_path</span> <span class="o">=</span> <span class="n">OUTPUT_DIR</span> <span class="o">/</span> <span class="s1">'elements.csv'</span>
+<span class="n">hierarchy_path</span> <span class="o">=</span> <span class="n">OUTPUT_DIR</span> <span class="o">/</span> <span class="s1">'hierarchy.csv'</span>
+<span class="k">if</span> <span class="n">elements_path</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="ow">and</span> <span class="n">hierarchy_path</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+    <span class="n">element_ids</span><span class="p">,</span> <span class="n">null_element</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(),</span> <span class="mi">0</span>
+    <span class="k">with</span> <span class="n">elements_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s1">'utf-8'</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">csv</span><span class="o">.</span><span class="n">DictReader</span><span class="p">(</span><span class="n">fh</span><span class="p">):</span>
+            <span class="n">element_ids</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s1">'element_id'</span><span class="p">])</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">row</span><span class="p">[</span><span class="s1">'element_id'</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">row</span><span class="p">[</span><span class="s1">'arxiv_id'</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">row</span><span class="p">[</span><span class="s1">'kind'</span><span class="p">]:</span>
+                <span class="n">null_element</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">missing_child</span> <span class="o">=</span> <span class="n">missing_parent</span> <span class="o">=</span> <span class="n">edges</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">with</span> <span class="n">hierarchy_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s1">'utf-8'</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">csv</span><span class="o">.</span><span class="n">DictReader</span><span class="p">(</span><span class="n">fh</span><span class="p">):</span>
+            <span class="n">edges</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="s1">'element_id'</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">element_ids</span><span class="p">:</span>
+                <span class="n">missing_child</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="s1">'parent_id'</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">element_ids</span><span class="p">:</span>
+                <span class="n">missing_parent</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">fk_ok</span> <span class="o">=</span> <span class="n">missing_child</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">missing_parent</span> <span class="o">==</span> <span class="mi">0</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'elements: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">element_ids</span><span class="p">)</span><span class="si">}</span><span class="s1"> rows | hierarchy: </span><span class="si">{</span><span class="n">edges</span><span class="si">}</span><span class="s1"> edges'</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Foreign key: </span><span class="si">{</span><span class="s2">"✓ OK"</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">fk_ok</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="sa">f</span><span class="s2">"✗ child=</span><span class="si">{</span><span class="n">missing_child</span><span class="si">}</span><span class="s2">, parent=</span><span class="si">{</span><span class="n">missing_parent</span><span class="si">}</span><span class="s2">"</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Non-null (elements): </span><span class="si">{</span><span class="s2">"✓ OK"</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">null_element</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="sa">f</span><span class="s2">"✗ </span><span class="si">{</span><span class="n">null_element</span><span class="si">}</span><span class="s2"> rows"</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="step-8-bieu-do-bang-tong-hop-cho-report">
+<h2>Step 8 — Biểu đồ &amp; bảng tổng hợp cho report<a class="headerlink" href="#step-8-bieu-do-bang-tong-hop-cho-report" title="Link to this heading">#</a></h2>
+<p>Bốn biểu đồ được sinh ngay khi notebook chạy (không dùng ảnh tĩnh): version coverage, phân bố loại element, thời gian parse mỗi version, số node mỗi publication; kèm bảng tổng hợp benchmark.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">manifest_path</span> <span class="o">=</span> <span class="n">OUTPUT_DIR</span> <span class="o">/</span> <span class="s1">'manifest.jsonl'</span>
+<span class="n">summary_path</span> <span class="o">=</span> <span class="n">OUTPUT_DIR</span> <span class="o">/</span> <span class="s1">'summary.json'</span>
+<span class="n">elements_path</span> <span class="o">=</span> <span class="n">OUTPUT_DIR</span> <span class="o">/</span> <span class="s1">'elements.csv'</span>
+<span class="n">bibtex_path</span> <span class="o">=</span> <span class="n">OUTPUT_DIR</span> <span class="o">/</span> <span class="s1">'bibtex.csv'</span>
+
+<span class="n">manifest</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">if</span> <span class="n">manifest_path</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+    <span class="n">manifest</span> <span class="o">=</span> <span class="p">[</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">line</span><span class="p">)</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">manifest_path</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s1">'utf-8'</span><span class="p">)</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span> <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span>
+
+<span class="k">if</span> <span class="n">manifest</span><span class="p">:</span>
+    <span class="n">statuses</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s1">'status'</span><span class="p">]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">manifest</span><span class="p">)</span>
+    <span class="n">times</span> <span class="o">=</span> <span class="p">[</span><span class="n">row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'elapsed_seconds'</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">manifest</span><span class="p">]</span>
+    <span class="n">pub_nodes</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">manifest</span><span class="p">:</span>
+        <span class="n">pub_nodes</span><span class="p">[</span><span class="n">row</span><span class="p">[</span><span class="s1">'arxiv_id'</span><span class="p">]]</span> <span class="o">+=</span> <span class="n">row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'node_count'</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">kinds</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">elements_path</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+        <span class="k">with</span> <span class="n">elements_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s1">'utf-8'</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">csv</span><span class="o">.</span><span class="n">DictReader</span><span class="p">(</span><span class="n">fh</span><span class="p">):</span>
+                <span class="n">kinds</span><span class="p">[</span><span class="n">row</span><span class="p">[</span><span class="s1">'kind'</span><span class="p">]]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+        <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">13</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+
+        <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'ok'</span><span class="p">,</span> <span class="s1">'empty'</span><span class="p">,</span> <span class="s1">'error'</span><span class="p">]</span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="p">[</span><span class="n">statuses</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">l</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">labels</span><span class="p">]</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">vals</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="s1">'#2ca02c'</span><span class="p">,</span> <span class="s1">'#ffbf00'</span><span class="p">,</span> <span class="s1">'#d62728'</span><span class="p">])</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s1">'Version parse status'</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s1">'Versions'</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">bar_label</span><span class="p">(</span><span class="n">ax</span><span class="o">.</span><span class="n">containers</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">top</span> <span class="o">=</span> <span class="n">kinds</span><span class="o">.</span><span class="n">most_common</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">pie</span><span class="p">([</span><span class="n">v</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">top</span><span class="p">],</span> <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">top</span><span class="p">],</span> <span class="n">autopct</span><span class="o">=</span><span class="s1">'</span><span class="si">%1.1f%%</span><span class="s1">'</span><span class="p">,</span> <span class="n">startangle</span><span class="o">=</span><span class="mi">90</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Distribution of element types'</span><span class="p">)</span>
+
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s1">'Parse time per version (log scale)'</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s1">'seconds'</span><span class="p">)</span>
+
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">boxplot</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">pub_nodes</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="n">vert</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s1">'Nodes per publication'</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s1">'node count'</span><span class="p">)</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">'Không có matplotlib; số liệu text vẫn hợp lệ.'</span><span class="p">)</span>
+
+    <span class="n">s</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">summary_path</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s1">'utf-8'</span><span class="p">))</span> <span class="k">if</span> <span class="n">summary_path</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="k">else</span> <span class="p">{}</span>
+    <span class="n">bib_count</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">open</span><span class="p">(</span><span class="n">bibtex_path</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">'utf-8'</span><span class="p">))</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">bibtex_path</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="k">else</span> <span class="mi">0</span>
+    <span class="n">n_ver</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'versions'</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">rows</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="s1">'Metric'</span><span class="p">,</span> <span class="s1">'Value'</span><span class="p">),</span>
+        <span class="p">(</span><span class="s1">'Publications processed'</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'publications'</span><span class="p">,</span> <span class="s1">'?'</span><span class="p">)),</span>
+        <span class="p">(</span><span class="s1">'Total versions'</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'versions'</span><span class="p">,</span> <span class="s1">'?'</span><span class="p">)),</span>
+        <span class="p">(</span><span class="s1">'Versions OK / empty / error'</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'versions_ok'</span><span class="p">,</span><span class="s1">'?'</span><span class="p">)</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'versions_empty'</span><span class="p">,</span><span class="s1">'?'</span><span class="p">)</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'versions_error'</span><span class="p">,</span><span class="s1">'?'</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">),</span>
+        <span class="p">(</span><span class="s1">'Success rate'</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="mi">100</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'versions_ok'</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">n_ver</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%"</span><span class="p">),</span>
+        <span class="p">(</span><span class="s1">'Elements (deduplicated)'</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'elements'</span><span class="p">,</span> <span class="s1">'?'</span><span class="p">)),</span>
+        <span class="p">(</span><span class="s1">'Hierarchy edges'</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'hierarchy_edges'</span><span class="p">,</span> <span class="s1">'?'</span><span class="p">)),</span>
+        <span class="p">(</span><span class="s1">'BibTeX entries (deduped)'</span><span class="p">,</span> <span class="n">bib_count</span><span class="p">),</span>
+        <span class="p">(</span><span class="s1">'Total parse time (s)'</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'elapsed_seconds'</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">"</span><span class="p">),</span>
+        <span class="p">(</span><span class="s1">'Avg time/publication (s)'</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'average_seconds_per_publication'</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">"</span><span class="p">),</span>
+        <span class="p">(</span><span class="s1">'Peak RAM (MB)'</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'peak_ram_mb'</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">"</span><span class="p">),</span>
+        <span class="p">(</span><span class="s1">'Output size (bytes)'</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'output_bytes'</span><span class="p">,</span> <span class="s1">'?'</span><span class="p">)),</span>
+    <span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">'</span><span class="se">\n</span><span class="s1">'</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s1">'| </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1"> | </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s1"> |'</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">))</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">'Chưa có manifest. Hãy chạy Step 5 trước (RUN_BATCH=True).'</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="step-9-phan-tich-chat-luong-du-lieu">
+<h2>Step 9 — Phân tích chất lượng dữ liệu<a class="headerlink" href="#step-9-phan-tich-chat-luong-du-lieu" title="Link to this heading">#</a></h2>
+<p>Success rate (target &gt; 85%), hiệu quả dedup BibTeX, phân tích lỗi/warning, và một sample tree của publication phức tạp.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">manifest</span><span class="p">:</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">manifest</span><span class="p">)</span>
+    <span class="n">ok</span> <span class="o">=</span> <span class="n">statuses</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'ok'</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">empty</span> <span class="o">=</span> <span class="n">statuses</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'empty'</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">error</span> <span class="o">=</span> <span class="n">statuses</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'error'</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Success rate: </span><span class="si">{</span><span class="mi">100</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">ok</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nb">max</span><span class="p">(</span><span class="n">total</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="si">:</span><span class="s1">.1f</span><span class="si">}</span><span class="s1">%  (ok=</span><span class="si">{</span><span class="n">ok</span><span class="si">}</span><span class="s1">, empty=</span><span class="si">{</span><span class="n">empty</span><span class="si">}</span><span class="s1">, error=</span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s1"> / </span><span class="si">{</span><span class="n">total</span><span class="si">}</span><span class="s1">)'</span><span class="p">)</span>
+
+    <span class="n">raw</span> <span class="o">=</span> <span class="n">BIBTEX_STATS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'raw_entries'</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">ded</span> <span class="o">=</span> <span class="n">BIBTEX_STATS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'deduped_entries'</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">raw</span><span class="p">:</span>
+        <span class="n">saving</span> <span class="o">=</span> <span class="mi">100</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">ded</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'BibTeX dedup: </span><span class="si">{</span><span class="n">raw</span><span class="si">}</span><span class="s1"> raw -&gt; </span><span class="si">{</span><span class="n">ded</span><span class="si">}</span><span class="s1"> dedup (tiết kiệm </span><span class="si">{</span><span class="n">saving</span><span class="si">:</span><span class="s1">.1f</span><span class="si">}</span><span class="s1">%), '</span>
+              <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">BIBTEX_STATS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"aliases"</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="si">}</span><span class="s1"> aliases'</span><span class="p">)</span>
+
+    <span class="n">errors</span> <span class="o">=</span> <span class="p">[</span><span class="n">m</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">manifest</span> <span class="k">if</span> <span class="n">m</span><span class="p">[</span><span class="s1">'status'</span><span class="p">]</span> <span class="o">==</span> <span class="s1">'error'</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">errors</span><span class="p">:</span>
+        <span class="n">err_types</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">':'</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">errors</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">m</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'warnings'</span><span class="p">,</span> <span class="p">[]))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Error versions: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">errors</span><span class="p">)</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">'Top error types:'</span><span class="p">,</span> <span class="nb">dict</span><span class="p">(</span><span class="n">err_types</span><span class="o">.</span><span class="n">most_common</span><span class="p">(</span><span class="mi">10</span><span class="p">)))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">'Không có version lỗi.'</span><span class="p">)</span>
+
+    <span class="n">warned</span> <span class="o">=</span> <span class="p">[</span><span class="n">m</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">manifest</span> <span class="k">if</span> <span class="n">m</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'warnings'</span><span class="p">)]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Versions with warnings: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">warned</span><span class="p">)</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+
+    <span class="n">complex_name</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">m</span><span class="p">[</span><span class="s1">'publication_dir'</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">manifest</span>
+                         <span class="k">if</span> <span class="n">m</span><span class="p">[</span><span class="s1">'status'</span><span class="p">]</span> <span class="o">==</span> <span class="s1">'ok'</span> <span class="ow">and</span> <span class="n">m</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'node_count'</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">150</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">complex_name</span><span class="p">:</span>
+        <span class="n">pub_dir</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">publications</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">complex_name</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">pub_dir</span><span class="p">:</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">parse_publication</span><span class="p">(</span><span class="n">pub_dir</span><span class="p">)</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">t</span><span class="o">.</span><span class="n">versions</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="s1">'ok'</span><span class="p">),</span> <span class="n">t</span><span class="o">.</span><span class="n">versions</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Sample tree (</span><span class="si">{</span><span class="n">t</span><span class="o">.</span><span class="n">arxiv_id</span><span class="si">}</span><span class="s1">, v</span><span class="si">{</span><span class="n">v</span><span class="o">.</span><span class="n">version</span><span class="si">}</span><span class="s1">):'</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">pretty</span><span class="p">(</span><span class="n">max_content</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">max_depth</span><span class="o">=</span><span class="mi">4</span><span class="p">))</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">'Chưa có manifest. Hãy chạy Step 5 trước.'</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="step-10-checklist-truoc-khi-nop">
+<h2>Step 10 — Checklist trước khi nộp<a class="headerlink" href="#step-10-checklist-truoc-khi-nop" title="Link to this heading">#</a></h2>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">unittest</span> <span class="pre">discover</span> <span class="pre">-s</span> <span class="pre">tests</span> <span class="pre">-v</span></code> — unit tests pass (gồm <code class="docutils literal notranslate"><span class="pre">test_hierarchy.py</span></code> và <code class="docutils literal notranslate"><span class="pre">test_references.py</span></code>).</p></li>
+<li><p>Demo ít nhất một bài multi-file, một bài có Appendix/Acknowledgements, một bài có list/formula/figure.</p></li>
+<li><p>Smoke batch (25 publication mặc định): đọc toàn bộ <code class="docutils literal notranslate"><span class="pre">status=error</span></code> và <code class="docutils literal notranslate"><span class="pre">warnings</span></code>.</p></li>
+<li><p>Full corpus: lưu năm file output nhỏ (<code class="docutils literal notranslate"><span class="pre">elements/hierarchy/bibtex.csv</span></code>, <code class="docutils literal notranslate"><span class="pre">manifest.jsonl</span></code>, <code class="docutils literal notranslate"><span class="pre">summary.json</span></code>); không commit raw corpus vào Git.</p></li>
+<li><p>Ba bảng đúng schema + foreign key integrity + non-null (Step 7).</p></li>
+<li><p>Bibliography bị loại khỏi hierarchy; references được xử lý riêng bởi <code class="docutils literal notranslate"><span class="pre">src/references.py</span></code>.</p></li>
+</ol>
+</section>
+</section>
+
+    <script type="text/x-thebe-config">
+    {
+        requestKernel: true,
+        binderOptions: {
+            repo: "binder-examples/jupyter-stacks-datascience",
+            ref: "master",
+        },
+        codeMirrorConfig: {
+            theme: "abcdef",
+            mode: "python"
+        },
+        kernelOptions: {
+            name: "python3",
+            path: "./."
+        },
+        predefinedOutput: true
+    }
+    </script>
+    <script>kernelName = 'python3'</script>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="milestone1.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Milestone 1 — Data Crawling</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="run_on_colab.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Milestone 1 — arXiv crawler on Colab</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-cau-hinh-duong-dan">Step 1 — Cấu hình đường dẫn</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-kiem-ke-corpus">Step 2 — Kiểm kê corpus</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-demo-mot-publication-that">Step 3 — Demo một publication thật</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-kiem-tra-cac-quy-tac-bat-buoc">Step 4 — Kiểm tra các quy tắc bắt buộc</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-5-chay-batch-elements-hierarchy">Step 5 — Chạy batch (elements + hierarchy)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-6-trich-xuat-deduplicate-bibtex">Step 6 — Trích xuất &amp; deduplicate BibTeX</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-7-xac-minh-schema-3-bang-foreign-key-non-null">Step 7 — Xác minh schema 3 bảng + foreign key + non-null</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-8-bieu-do-bang-tong-hop-cho-report">Step 8 — Biểu đồ &amp; bảng tổng hợp cho report</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-9-phan-tich-chat-luong-du-lieu">Step 9 — Phân tích chất lượng dữ liệu</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-10-checklist-truoc-khi-nop">Step 10 — Checklist trước khi nộp</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By 2
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2023.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
