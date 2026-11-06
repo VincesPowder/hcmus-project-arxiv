@@ -4,7 +4,7 @@ Jupyter Book tổng hợp kết quả **Milestone 1 (Data Crawling)** và **Mile
 
 ## Dữ liệu đầu vào
 
-Corpus được giao gồm **5000 publication** (arXiv ID từ `2512.18231` đến `2512.23230`), mỗi publication có thể có nhiều version. Toàn bộ mã nguồn nằm trong repository
+Corpus của cả nhóm gồm tổng cộng **20.000 publication**, được tổng hợp từ dữ liệu của tất cả thành viên; mỗi publication có thể có nhiều version. Toàn bộ mã nguồn nằm trong repository
 [`VincesPowder/hcmus-project-arxiv`](https://github.com/VincesPowder/hcmus-project-arxiv).
 
 ## Tổng quan pipeline hai milestone
