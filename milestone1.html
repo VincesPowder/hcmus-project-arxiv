@@ -457,40 +457,34 @@
 <tr class="row-even"><td><p>Publications được giao cho toàn nhóm</p></td>
 <td><p>20 000</p></td>
 </tr>
-<tr class="row-odd"><td><p>Số range được phân công</p></td>
-<td><p>4 × 5 000 publications</p></td>
-</tr>
-<tr class="row-even"><td><p>Publications trong corpus được thống kê bên dưới</p></td>
-<td><p>5 000</p></td>
-</tr>
-<tr class="row-odd"><td><p>Publications tìm thấy trong corpus này</p></td>
-<td><p>5 000</p></td>
+<tr class="row-odd"><td><p>Publications tìm thấy</p></td>
+<td><p>20 000</p></td>
 </tr>
 <tr class="row-even"><td><p>Tổng version directories</p></td>
-<td><p>7 606</p></td>
+<td><p>29 085</p></td>
 </tr>
 <tr class="row-odd"><td><p>Version có <code class="docutils literal notranslate"><span class="pre">.tex</span></code> (status <code class="docutils literal notranslate"><span class="pre">ok</span></code>)</p></td>
-<td><p>7 039</p></td>
+<td><p>27 492</p></td>
 </tr>
 <tr class="row-even"><td><p>Version PDF-only / không có <code class="docutils literal notranslate"><span class="pre">.tex</span></code> (status <code class="docutils literal notranslate"><span class="pre">no_tex</span></code>)</p></td>
-<td><p>567</p></td>
+<td><p>1 593</p></td>
 </tr>
 <tr class="row-odd"><td><p>File <code class="docutils literal notranslate"><span class="pre">.tex</span></code> tải về</p></td>
-<td><p>23 586</p></td>
+<td><p>105 841</p></td>
 </tr>
 <tr class="row-even"><td><p>File <code class="docutils literal notranslate"><span class="pre">.bib</span></code> tải về</p></td>
-<td><p>5 340</p></td>
+<td><p>22 313</p></td>
 </tr>
 <tr class="row-odd"><td><p>Số dòng bảng <code class="docutils literal notranslate"><span class="pre">references</span></code></p></td>
-<td><p>90 355</p></td>
+<td><p>372 085</p></td>
 </tr>
-<tr class="row-even"><td><p>Kích thước corpus</p></td>
-<td><p>~1,35 GB</p></td>
+<tr class="row-even"><td><p>Tổng kích thước corpus</p></td>
+<td><p>~6,35 GB</p></td>
 </tr>
 </tbody>
 </table>
 </div>
-<p>Các metric từ <strong>Tổng version directories</strong> trở xuống là số liệu đo trên corpus 5.000 publication hiện được dùng để lập báo cáo Milestone 1; chúng không được nhân bốn vì chưa phải số liệu tổng hợp từ cả bốn range.</p>
+<p>Các metric trên được tổng hợp từ bốn thư mục <code class="docutils literal notranslate"><span class="pre">work</span></code> tương ứng với bốn range của nhóm, không phải số liệu ngoại suy từ một range 5.000 publication.</p>
 </section>
 <section id="output-tables">
 <h2>Output tables<a class="headerlink" href="#output-tables" title="Link to this heading">#</a></h2>
@@ -504,9 +498,9 @@ work/tables/references.parquet        # arxiv_id, ref_arxiv_id, ref_title, ...
 </section>
 <section id="coverage-version">
 <h2>Coverage version<a class="headerlink" href="#coverage-version" title="Link to this heading">#</a></h2>
-<a class="reference internal image-reference" href="_images/m1_versions.png"><img alt="Milestone 1 version status" class="align-center" src="_images/m1_versions.png" style="width: 560px;" />
+<a class="reference internal image-reference" href="_images/m1_versions.svg"><img alt="Milestone 1 version status" class="align-center" src="_images/m1_versions.svg" style="width: 560px;" />
 </a>
-<p>Trong 7 606 version, 92,5 % có source TeX (7 039/7 606) và 7,5 % là PDF-only (567/7 606). Version không có TeX <strong>được ghi lại với <code class="docutils literal notranslate"><span class="pre">status</span> <span class="pre">=</span> <span class="pre">no_tex</span></code></strong> thay vì bị bỏ qua im lặng — cơ chế này đảm bảo Milestone 2 biết chính xác version nào cần xử lý.</p>
+<p>Trong 29 085 version của 20.000 publication, 94,5 % có source TeX (27 492/29 085) và 5,5 % là PDF-only (1 593/29 085). Version không có TeX <strong>được ghi lại với <code class="docutils literal notranslate"><span class="pre">status</span> <span class="pre">=</span> <span class="pre">no_tex</span></code></strong> thay vì bị bỏ qua im lặng — cơ chế này đảm bảo Milestone 2 biết chính xác version nào cần xử lý.</p>
 </section>
 <section id="hieu-nang">
 <h2>Hiệu năng<a class="headerlink" href="#hieu-nang" title="Link to this heading">#</a></h2>

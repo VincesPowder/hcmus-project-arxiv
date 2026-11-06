@@ -7,18 +7,16 @@ Pipeline thu thập metadata, source `.tex`/`.bib` của **mọi version** và r
 | Metric | Giá trị |
 |---|---|
 | Publications được giao cho toàn nhóm | 20 000 |
-| Số range được phân công | 4 × 5 000 publications |
-| Publications trong corpus được thống kê bên dưới | 5 000 |
-| Publications tìm thấy trong corpus này | 5 000 |
-| Tổng version directories | 7 606 |
-| Version có `.tex` (status `ok`) | 7 039 |
-| Version PDF-only / không có `.tex` (status `no_tex`) | 567 |
-| File `.tex` tải về | 23 586 |
-| File `.bib` tải về | 5 340 |
-| Số dòng bảng `references` | 90 355 |
-| Kích thước corpus | ~1,35 GB |
+| Publications tìm thấy | 20 000 |
+| Tổng version directories | 29 085 |
+| Version có `.tex` (status `ok`) | 27 492 |
+| Version PDF-only / không có `.tex` (status `no_tex`) | 1 593 |
+| File `.tex` tải về | 105 841 |
+| File `.bib` tải về | 22 313 |
+| Số dòng bảng `references` | 372 085 |
+| Tổng kích thước corpus | ~6,35 GB |
 
-Các metric từ **Tổng version directories** trở xuống là số liệu đo trên corpus 5.000 publication hiện được dùng để lập báo cáo Milestone 1; chúng không được nhân bốn vì chưa phải số liệu tổng hợp từ cả bốn range.
+Các metric trên được tổng hợp từ bốn thư mục `work` tương ứng với bốn range của nhóm, không phải số liệu ngoại suy từ một range 5.000 publication.
 
 ## Output tables
 
@@ -32,13 +30,13 @@ work/tables/references.parquet        # arxiv_id, ref_arxiv_id, ref_title, ...
 
 ## Coverage version
 
-```{image} _static/m1_versions.png
+```{image} _static/m1_versions.svg
 :alt: Milestone 1 version status
 :width: 560px
 :align: center
 ```
 
-Trong 7 606 version, 92,5 % có source TeX (7 039/7 606) và 7,5 % là PDF-only (567/7 606). Version không có TeX **được ghi lại với `status = no_tex`** thay vì bị bỏ qua im lặng — cơ chế này đảm bảo Milestone 2 biết chính xác version nào cần xử lý.
+Trong 29 085 version của 20.000 publication, 94,5 % có source TeX (27 492/29 085) và 5,5 % là PDF-only (1 593/29 085). Version không có TeX **được ghi lại với `status = no_tex`** thay vì bị bỏ qua im lặng — cơ chế này đảm bảo Milestone 2 biết chính xác version nào cần xử lý.
 
 ## Hiệu năng
 
