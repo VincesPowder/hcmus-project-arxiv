@@ -1,13 +1,15 @@
 # Milestone 1 — Data Crawling
 
-Pipeline thu thập metadata, source `.tex`/`.bib` của **mọi version** và reference metadata của 5000 publication được giao, đồng thời tôn trọng rate-limit của arXiv (3 s/request) và Semantic Scholar.
+Pipeline thu thập metadata, source `.tex`/`.bib` của **mọi version** và reference metadata của **20.000 publication được phân công cho toàn nhóm** (4 thành viên, mỗi thành viên 5.000 publication), đồng thời tôn trọng rate-limit của arXiv (3 s/request) và Semantic Scholar.
 
 ## Kết quả chính
 
 | Metric | Giá trị |
 |---|---|
-| Publications được giao | 5 000 |
-| Publications tìm thấy | 5 000 |
+| Publications được giao cho toàn nhóm | 20 000 |
+| Số range được phân công | 4 × 5 000 publications |
+| Publications trong corpus được thống kê bên dưới | 5 000 |
+| Publications tìm thấy trong corpus này | 5 000 |
 | Tổng version directories | 7 606 |
 | Version có `.tex` (status `ok`) | 7 039 |
 | Version PDF-only / không có `.tex` (status `no_tex`) | 567 |
@@ -15,6 +17,8 @@ Pipeline thu thập metadata, source `.tex`/`.bib` của **mọi version** và r
 | File `.bib` tải về | 5 340 |
 | Số dòng bảng `references` | 90 355 |
 | Kích thước corpus | ~1,35 GB |
+
+Các metric từ **Tổng version directories** trở xuống là số liệu đo trên corpus 5.000 publication hiện được dùng để lập báo cáo Milestone 1; chúng không được nhân bốn vì chưa phải số liệu tổng hợp từ cả bốn range.
 
 ## Output tables
 
