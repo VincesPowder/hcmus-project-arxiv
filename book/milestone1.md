@@ -40,15 +40,20 @@ Trong 29 085 version của 20.000 publication, 94,5 % có source TeX (27 492/29 
 
 ## Hiệu năng
 
+Các số liệu dưới đây được tổng hợp từ bốn lượt chạy tương ứng với bốn range của nhóm. Wall time và discovery time là tổng thời gian nếu thực hiện bốn lượt chạy nối tiếp.
+
 | Metric | Giá trị |
 |---|---|
-| Wall time (crawl đầy đủ) | ~1 250 s (~21 phút) |
-| Discovery time | ~581 s |
-| Số request arXiv | 85 (throttled: 0) |
-| Peak RAM | ~277 MB |
-| Average RAM | ~113 MB |
+| Số lượt chạy | 4 |
+| Tổng wall time | ~73 153 s (~20 giờ 19 phút) |
+| Tổng discovery time | ~2 177 s (~36 phút 17 giây) |
+| Tổng request arXiv | 15 789 (throttled: 79) |
+| Tổng request Semantic Scholar | 408 (throttled: 207) |
+| Tổng thời gian penalty/backoff | arXiv: ~4 694 s; Semantic Scholar: ~6 730 s |
+| Peak RAM lớn nhất | ~418 MB |
+| Average RAM có trọng số | ~187 MB |
 
-Crawler chạy tuần tự (`download_workers = 1`), resume được khi gián đoạn: version/reference đã tải xong được bỏ qua ở lần chạy lại.
+Mỗi lượt crawler chạy tuần tự (`download_workers = 1`) và resume được khi gián đoạn: version/reference đã tải xong được bỏ qua ở lần chạy lại.
 
 ## Notebook
 
