@@ -504,6 +504,7 @@ work/tables/references.parquet        # arxiv_id, ref_arxiv_id, ref_title, ...
 </section>
 <section id="hieu-nang">
 <h2>Hiệu năng<a class="headerlink" href="#hieu-nang" title="Link to this heading">#</a></h2>
+<p>Các số liệu dưới đây được tổng hợp từ bốn lượt chạy tương ứng với bốn range của nhóm. Wall time và discovery time là tổng thời gian nếu thực hiện bốn lượt chạy nối tiếp.</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
 <tr class="row-odd"><th class="head"><p>Metric</p></th>
@@ -511,25 +512,34 @@ work/tables/references.parquet        # arxiv_id, ref_arxiv_id, ref_title, ...
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p>Wall time (crawl đầy đủ)</p></td>
-<td><p>~1 250 s (~21 phút)</p></td>
+<tr class="row-even"><td><p>Số lượt chạy</p></td>
+<td><p>4</p></td>
 </tr>
-<tr class="row-odd"><td><p>Discovery time</p></td>
-<td><p>~581 s</p></td>
+<tr class="row-odd"><td><p>Tổng wall time</p></td>
+<td><p>~73 153 s (~20 giờ 19 phút)</p></td>
 </tr>
-<tr class="row-even"><td><p>Số request arXiv</p></td>
-<td><p>85 (throttled: 0)</p></td>
+<tr class="row-even"><td><p>Tổng discovery time</p></td>
+<td><p>~2 177 s (~36 phút 17 giây)</p></td>
 </tr>
-<tr class="row-odd"><td><p>Peak RAM</p></td>
-<td><p>~277 MB</p></td>
+<tr class="row-odd"><td><p>Tổng request arXiv</p></td>
+<td><p>15 789 (throttled: 79)</p></td>
 </tr>
-<tr class="row-even"><td><p>Average RAM</p></td>
-<td><p>~113 MB</p></td>
+<tr class="row-even"><td><p>Tổng request Semantic Scholar</p></td>
+<td><p>408 (throttled: 207)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Tổng thời gian penalty/backoff</p></td>
+<td><p>arXiv: ~4 694 s; Semantic Scholar: ~6 730 s</p></td>
+</tr>
+<tr class="row-even"><td><p>Peak RAM lớn nhất</p></td>
+<td><p>~418 MB</p></td>
+</tr>
+<tr class="row-odd"><td><p>Average RAM có trọng số</p></td>
+<td><p>~187 MB</p></td>
 </tr>
 </tbody>
 </table>
 </div>
-<p>Crawler chạy tuần tự (<code class="docutils literal notranslate"><span class="pre">download_workers</span> <span class="pre">=</span> <span class="pre">1</span></code>), resume được khi gián đoạn: version/reference đã tải xong được bỏ qua ở lần chạy lại.</p>
+<p>Mỗi lượt crawler chạy tuần tự (<code class="docutils literal notranslate"><span class="pre">download_workers</span> <span class="pre">=</span> <span class="pre">1</span></code>) và resume được khi gián đoạn: version/reference đã tải xong được bỏ qua ở lần chạy lại.</p>
 </section>
 <section id="notebook">
 <h2>Notebook<a class="headerlink" href="#notebook" title="Link to this heading">#</a></h2>
