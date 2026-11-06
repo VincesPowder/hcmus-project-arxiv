@@ -1,0 +1,35 @@
+name: deploy-book
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Build the Jupyter Book and publish its HTML to the `gh-pages` branch,
+# which GitHub Pages serves.
+jobs:
+  deploy-book:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: pages
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r book/requirements.txt
+
+      - name: Build the book
+        run: jupyter-book build book
+
+      - name: Publish to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: book/_build/html
