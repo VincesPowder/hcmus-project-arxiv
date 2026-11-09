@@ -21,7 +21,7 @@ USER_AGENT = os.environ.get(
 
 # Politeness: arXiv asks for >= 3 s between calls and one connection at a time.
 ARXIV_DELAY_SECONDS = 3.0
-S2_DELAY_WITH_KEY_SECONDS = 1.1      # 1 request/second with a free API key
+S2_DELAY_WITH_KEY_SECONDS = 2      # 1 request/second with a free API key
 S2_DELAY_NO_KEY_SECONDS = 3.1        # 100 requests / 5 minutes without a key
 
 MAX_RETRIES = 4

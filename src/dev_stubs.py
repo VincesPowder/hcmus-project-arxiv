@@ -1,12 +1,17 @@
-"""PLACEHOLDERS so that A can run the pipeline end-to-end before B/C finish.
+"""Test doubles for the pipeline plumbing tests.
 
-Replace by the real modules (same function names/signatures):
-    hier_parser.parse_document(text) -> assemble.Node           (B: hierarchy, leaves, cleanup, math)
+The real modules are ``hier_parser.py`` (parser, part B) and ``refs.py``
+(references, part C); ``pipeline.py`` imports them directly.  These minimal
+implementations with the same function names/signatures are kept only so
+``test_pipeline.py`` can exercise the gather/assemble/plumbing logic without
+depending on the real modules:
+
+    hier_parser.parse_document(text) -> assemble.Node
     refs.extract_references(gathered, version_dir, bib_scope="cited") -> list[dict]
-                                                                (C: \\bibitem in gathered.text AND the .bib files
-                                                                 listed in gathered.bib_files -> BibTeX fields)
-    refs.unify_bibtex(per_version)   -> (list[dict], dict)      (C: dedup + union fields + rename map)
-    refs.rename_cites(text, mapping) -> str                     (C: \\cite{old} -> \\cite{chosen})
+    refs.unify_bibtex(per_version)   -> (list[dict], dict)
+    refs.rename_cites(text, mapping) -> str
+
+They are deliberately tiny; never use their output in the report.
 """
 import re
 
