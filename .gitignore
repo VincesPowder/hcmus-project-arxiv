@@ -1,0 +1,9 @@
+corpus/
+work/
+__pycache__/
+.venv/
+logs/
+test_corpus/
+test_work/
+parsed/
+*.parquet

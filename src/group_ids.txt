@@ -1,0 +1,5 @@
+# Group ids, one entry per line: single id or inclusive range A..B (same month)
+2606.00734..2606.05733   # 24127192 Duong Minh Huynh Khoi
+2605.02338..2605.07337   # 24127262 Do Thanh Vinh
+2602.09870..2602.14869   # 24127465 Ta Mai Nhu Ngoc
+2512.18231..2512.23230   # 24127534 Truong Quang Tao
