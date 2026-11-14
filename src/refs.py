@@ -229,7 +229,7 @@ _BIBITEM_RE = re.compile(
 )
 _TITLE_PATTERNS = [
     re.compile(r"``(?P<t>[^']*)''", re.DOTALL),
-    re.compile(r"[\u2018\u2019']\s*(?P<t>.{4,}?)\s*[\u2018\u2019']", re.DOTALL),
+    re.compile(r'"(?P<t>[^"\n]+)"|“(?P<u>[^”]+)”', re.DOTALL),
     re.compile(r"\\(?:emph|textit|textsl)\s*\{(?P<t>(?:[^{}]|\{[^{}]*\})*)\}", re.IGNORECASE),
     re.compile(r"\{\\(?:it|em|sl|itshape|emph)\s*(?P<t>(?:[^{}]|\{[^{}]*\})*)\}", re.IGNORECASE),
 ]
@@ -241,8 +241,23 @@ def _bibitem_authors(raw: str) -> list[str]:
     text = re.sub(r"\\href\s*\{[^{}]*\}\{([^{}]*)\}", r"\1", raw)   # \href{url}{Name} -> Name
     text = re.sub(r"\\url\s*\{[^{}]*\}", " ", text)
     text = _clean_value(text)
-    text = re.sub(r",?\s*$", "", text)
-    parts = re.split(r",\s*|\s+and\s+", text, flags=re.IGNORECASE)
+    text = re.sub(r"\s*\(?\b(?:19|20)\d{2}[a-z]?\)?[.,]?\s*$", "", text)
+    text = re.sub(r"\bet\s+al\.?", "", text, flags=re.IGNORECASE)
+    text = text.strip(" ,.;")
+    # Commas normally separate formatted names. Preserve 'Last, First' pairs
+    # when the surname is a single word; BibTeX's author parser normalizes them.
+    parts = []
+    for group in re.split(r"\s+and\s+|\s*&\s*", text, flags=re.IGNORECASE):
+        names = [p.strip(" ,;") for p in group.split(",") if p.strip(" ,;")]
+        index = 0
+        while index < len(names):
+            if (index + 1 < len(names) and re.fullmatch(r"[^\W\d_]+(?:[-'][^\W\d_]+)*", names[index])
+                    and names[index + 1]):
+                parts.extend(parse_authors(names[index] + ", " + names[index + 1]))
+                index += 2
+            else:
+                parts.append(names[index])
+                index += 1
     return [re.sub(r"\s+", " ", p).strip(" ,.") for p in parts if re.sub(r"\s+", " ", p).strip(" ,.")]
 
 
@@ -259,23 +274,35 @@ def _split_bibitem(content: str, year: int | None) -> tuple[str, str]:
     content = re.sub(r"\\href\s*\{[^{}]*\}\{([^{}]*)\}", r"\1", content)
     content = re.sub(r"\\url\s*\{[^{}]*\}", " ", content)
 
+    # biblatex/natbib generated .bbl text can carry explicit field markers.
+    fields = {}
+    for marker in re.finditer(r"\\bibinfo\s*\{(author|title)\}\s*", content):
+        group = _balanced(content, marker.end())
+        if group:
+            fields.setdefault(marker.group(1), []).append(group[0])
+    if fields.get("title"):
+        return " and ".join(fields.get("author", [])), _clean_value(fields["title"][0]).rstrip("., ")
+
     segments = [segment for segment in re.split(r"\\newblock", content) if segment.strip()]
     if len(segments) >= 2:
         return segments[0], _clean_value(segments[1]).rstrip("., ")
 
+    # A leading year belongs to the author-year style, not the end of a title.
+    head = re.sub(r"\s*\((?:19|20)\d{2}[a-z]?\)\.?\s*", ". ", content, count=1)
+    boundary = re.search(r"[^\W\d_]{2,}\.\s+(?=[^\W\d_])", head)
     for pattern in _TITLE_PATTERNS:
         found = pattern.search(content)
-        if found:
-            return content[: found.start()], _clean_value(found.group("t")).rstrip("., ")
-
-    head = content[: content.find(str(year))] if year is not None else content
-    boundary = re.search(r"[a-z]\.\s+(?=[A-Z])", head)
+        if found and (not boundary or found.start() <= boundary.end()):
+            title = found.groupdict().get("t") or found.groupdict().get("u")
+            return content[:found.start()], _clean_value(title).rstrip("., ")
     if not boundary:
-        return content, ""
-    authors = head[: boundary.start() + 1]
+        # Ambiguous text must not become a fake author containing title/venue.
+        return "", ""
+    authors = head[: boundary.end()].strip(" .,")
     rest = head[boundary.end() :].strip()
-    sentence = re.search(r"[a-z]\.\s+(?=[A-Z])", rest)
-    title = rest[: sentence.end()] if sentence else rest
+    sentence = re.search(r"(?<=[^\W\d_])\.\s+(?=[^\W\d_\d]|(?:19|20)\d{2})", rest)
+    title = rest[:sentence.start()] if sentence else rest
+    title = re.sub(r"[,;.]?\s*\(?\b(?:19|20)\d{2}[a-z]?\)?.*$", "", title)
     return authors, _clean_value(title).rstrip("., ")
 
 

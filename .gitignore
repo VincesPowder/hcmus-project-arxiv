@@ -8,3 +8,4 @@ test_work/
 parsed/
 *.parquet
 book/_build/
+book/_generated/
