@@ -72,11 +72,11 @@ def generate(app):
     metrics = [json.loads(p.read_text(encoding="utf-8")) for p in metrics_paths]
     if metrics:
         lines += ["### Số đo hiệu năng được cung cấp", "",
-                  "Số đo dưới đây là log được cung cấp, chưa tự xác nhận môi trường Colab CPU hoặc toàn bộ RAM worker. Chỉ gộp các lượt fresh, không chồng lặp, cùng phiên bản mã; không đưa log resume/merge-only vào benchmark tổng.", "",
+                  "Số đo dưới đây là log được cung cấp, chưa tự xác nhận môi trường Colab CPU. RAM là RSS process tree lấy mẫu mỗi giây. Chỉ gộp các lượt fresh, không chồng lặp, cùng phiên bản mã; không đưa log resume/merge-only vào benchmark tổng.", "",
                   "| Metric | Giá trị |", "|---|---|",
                   f"| Số log benchmark | {len(metrics)} |",
                   f"| Tổng wall time (s) | {sum(m['wall_seconds'] for m in metrics):.3f} |",
-                  f"| Peak RAM process chính (MB) | {max(m['max_ram_mb'] for m in metrics):.3f} |",
+                  f"| Peak RAM process tree (MB) | {max(m['max_ram_mb'] for m in metrics):.3f} |",
                   f"| Output JSON (bytes) | {sum(m['output_json_bytes'] for m in metrics):,} |",
                   f"| Output Parquet (bytes) | {sum(m['tables_bytes'] for m in metrics):,} |"]
         processed = sum(m["n_papers_this_run"] - m["status_counts"].get("skipped", 0) for m in metrics)

@@ -93,7 +93,7 @@ python src/pipeline.py --corpus-dir /content/corpus \
 
 Để benchmark fresh, dùng output directory mới cho mỗi range. Parser mặc định resume paper đã có JSON; sau sửa reference parser cần dùng output mới hoặc `--force` để kết quả phản ánh mã mới. Báo cáo này không chạy lại corpus. `--merge-only` chỉ dựng bảng, không phải benchmark parser đầy đủ.
 
-Các trường `wall_seconds`, `avg_seconds_per_paper`, `max_ram_mb`, `output_json_bytes`, `tables_bytes` đến từ `parse_metrics.json`. Average hiện tại của pipeline là thời gian parse chia số paper không skipped; báo cáo cần phân biệt nó với end-to-end wall time chia số publication thực xử lý. ResourceMonitor đo process chính; với multiprocessing có thể chưa phản ánh tổng RSS của cả cây worker, cần đo thêm process tree trước benchmark cuối. Với bốn lượt chạy: tổng wall time là tổng công việc nối tiếp; peak RAM lấy max, không cộng; dung lượng JSON và Parquet báo riêng để tránh hiểu là một bản dữ liệu.
+Các trường `wall_seconds`, `avg_seconds_per_paper`, `max_ram_mb`, `output_json_bytes`, `tables_bytes` đến từ `parse_metrics.json`. Average hiện tại của pipeline là thời gian parse chia số paper không skipped; báo cáo phân biệt nó với end-to-end wall time chia số publication thực xử lý. ResourceMonitor cộng RSS process chính và các child process đệ quy, lấy mẫu mỗi giây; peak giữa hai lần lấy mẫu có thể bị bỏ lỡ và RSS có thể đếm lặp trang bộ nhớ chia sẻ. Với bốn lượt chạy: tổng wall time là tổng công việc nối tiếp; peak RAM lấy max, không cộng; dung lượng JSON và Parquet báo riêng để tránh hiểu là một bản dữ liệu.
 
 ## 7. Đánh giá, giới hạn và việc còn thiếu
 
@@ -108,4 +108,4 @@ Các trường `wall_seconds`, `avg_seconds_per_paper`, `max_ram_mb`, `output_js
 | Coverage từng publication, counts trước/sau | Bảng sinh ở mục 5 | Cần output M2 đầy đủ |
 | Colab CPU wall time/RAM/storage | Mục 6 | Chưa có benchmark cuối xác nhận |
 
-Các hạn chế còn lại gồm macro TeX phức tạp, environment tùy biến, year/title mơ hồ trong references, dedup theo title có thể false-positive và tổng RAM của workers chưa đo đầy đủ. Cần cung cấp output của đủ bốn range và benchmark Colab CPU trước khi khẳng định hoàn tất xử lý 20.000 bài.
+Các hạn chế còn lại gồm macro TeX phức tạp, environment tùy biến, year/title mơ hồ trong references, dedup theo title có thể false-positive và peak RAM phụ thuộc khoảng lấy mẫu. Cần cung cấp output của đủ bốn range và benchmark Colab CPU trước khi khẳng định hoàn tất xử lý 20.000 bài.

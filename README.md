@@ -43,8 +43,7 @@ No source corpus is read or parsed by the report build. Without these inputs, th
 marks the measurements unavailable. See the report for the required Colab CPU benchmark and schema.
 
 This branch includes focused regression cases in `tests/test_bibitem_fields.py` for the
-reference-field fix. Legacy tests described later in this README were removed on upstream
-`main`; those descriptions are historical, not evidence that the files or a passing run are present.
+reference-field fix. Legacy tests were removed on upstream `main`.
 No tests, crawling or full-corpus parsing were executed for this update.
 
 ---
@@ -79,14 +78,14 @@ No tests, crawling or full-corpus parsing were executed for this update.
 |   |-- assemble.py              # M2: element ids, cross-version deduplication, elements/hierarchy rows
 |   |-- hier_parser.py           # M2: LaTeX -> tree, cleanup, math normalization       (parser module)
 |   |-- refs.py                  # M2: \bibitem/.bib -> BibTeX, reference dedup, \cite renaming  (reference module)
-|   |-- dev_stubs.py             # M2: placeholders used ONLY while hier_parser.py / refs.py are missing
+|   |-- dev_stubs.py             # historical test doubles; not used by the real pipeline
 |-- tests/
-|   |-- helpers.py, test_gather.py, test_assemble.py, test_pipeline.py
+|   |-- test_bibitem_fields.py   # focused reference-field regression cases
+|-- book/                       # cumulative Jupyter Book reports
 ```
 
-`pipeline.py` imports `hier_parser` and `refs`; if one of them is not found it prints a warning and
-falls back to `dev_stubs.py`. **Numbers produced with the stubs are for plumbing checks only and must
-not be used in the report.**
+`pipeline.py` imports `hier_parser` and `refs` directly. Missing modules are an installation
+error; the real pipeline does not fall back to `dev_stubs.py`.
 
 ## 2. Setup
 
@@ -388,17 +387,9 @@ use `--limit`.
 python -m unittest discover -s tests -v      # standard library only; pytest also works
 ```
 
-- `test_gather.py` — comments (`%`, `\%`, `comment` environment), include forms and resolution, missing files,
-  cycles, escaping the folder, unreachable files, `\subfile`, root selection, encodings, `.bib` resolution,
-  citation-key detection.
-- `test_assemble.py` — shared elements across versions (the example of the statement), whitespace/Unicode
-  normalization, repeated sentences and headings, id uniqueness/determinism, statistics, tree validation.
-- `test_pipeline.py` — empty / not-downloaded / no-root versions are recorded, one bad version does not kill
-  a publication, timeout, resume, `\cite` renaming before text deduplication, field unionization,
-  `--bib-scope`.
-
-The pipeline tests replace the parser and reference modules by `dev_stubs.py`, so they keep passing when
-the real modules change. The timeout test is skipped on Windows (no `SIGALRM`).
+`test_bibitem_fields.py` covers initials, author-year references, apostrophes, quoted titles,
+formatted venues, explicit `bibinfo` fields and ambiguous entries. These cases have been added
+but not executed in this update, following the requested no-tests constraint.
 
 ## 7. Performance measurement
 
@@ -419,7 +410,6 @@ run only measures the part that was re-executed.
 | Symptom | Fix |
 |---|---|
 | `FileNotFoundError ... 'corpus'` (WinError 3) | The corpus folder does not exist relative to where you run: pass `--corpus-dir <path>` or run the Milestone 1 smoke test first |
-| `WARNING: hier_parser not found` / `refs not found` | The parser/reference modules are not in `src/`; the placeholder stubs are used (also printed once per worker on Windows) |
 | `ModuleNotFoundError: pyarrow` / `psutil` | Activate the venv, then `pip install -r src/requirements.txt` |
 | Ids like `2605.0234` in a table | CSV read without `dtype={"arxiv_id": str}` |
 | `n_references` huge (thousands) | A shared `.bib` library; use `--bib-scope cited` (default) |
