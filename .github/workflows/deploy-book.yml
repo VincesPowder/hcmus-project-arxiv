@@ -1,0 +1,22 @@
+name: Build milestone reports
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  book:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r book/requirements.txt
+      - run: jupyter-book build book
+      - uses: actions/upload-artifact@v4
+        with:
+          name: milestone-report-html
+          path: book/_build/html

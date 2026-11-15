@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="850" height="470" viewBox="0 0 850 470" role="img" aria-labelledby="title desc">
+  <title id="title">M1 — Version download status for 20,000 publications</title>
+  <desc id="desc">27,492 versions have TeX source and 1,593 versions are PDF-only.</desc>
+  <rect width="850" height="470" fill="#ffffff"/>
+  <text x="425" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="22">M1 — Version download status (20,000 publications)</text>
+
+  <g stroke="#d9d9d9" stroke-width="1">
+    <line x1="100" y1="400" x2="820" y2="400"/>
+    <line x1="100" y1="345" x2="820" y2="345"/>
+    <line x1="100" y1="290" x2="820" y2="290"/>
+    <line x1="100" y1="235" x2="820" y2="235"/>
+    <line x1="100" y1="180" x2="820" y2="180"/>
+    <line x1="100" y1="125" x2="820" y2="125"/>
+    <line x1="100" y1="70" x2="820" y2="70"/>
+  </g>
+
+  <g stroke="#222222" stroke-width="1.5">
+    <line x1="100" y1="70" x2="100" y2="400"/>
+    <line x1="100" y1="400" x2="820" y2="400"/>
+  </g>
+
+  <g fill="#222222" font-family="Arial, sans-serif" font-size="15" text-anchor="end">
+    <text x="90" y="405">0</text>
+    <text x="90" y="350">5,000</text>
+    <text x="90" y="295">10,000</text>
+    <text x="90" y="240">15,000</text>
+    <text x="90" y="185">20,000</text>
+    <text x="90" y="130">25,000</text>
+    <text x="90" y="75">30,000</text>
+  </g>
+
+  <text x="28" y="235" transform="rotate(-90 28 235)" text-anchor="middle" font-family="Arial, sans-serif" font-size="17">Versions</text>
+
+  <rect x="150" y="97.6" width="270" height="302.4" fill="#2ca02c"/>
+  <rect x="510" y="382.5" width="270" height="17.5" fill="#ffbb00"/>
+
+  <g fill="#111111" font-family="Arial, sans-serif" font-size="19" font-weight="700" text-anchor="middle">
+    <text x="285" y="87">27,492</text>
+    <text x="645" y="372">1,593</text>
+  </g>
+
+  <g fill="#111111" font-family="Arial, sans-serif" font-size="18" text-anchor="middle">
+    <text x="285" y="430">ok</text>
+    <text x="645" y="430">no_tex</text>
+  </g>
+</svg>
+

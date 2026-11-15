@@ -1,0 +1,6 @@
+format: jb-book
+root: intro
+chapters:
+  - file: milestone1
+  - file: milestone2
+  - file: run_on_colab
