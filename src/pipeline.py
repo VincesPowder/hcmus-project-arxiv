@@ -78,10 +78,18 @@ def parse_one_version(version_dir, timeout, bib_scope="cited"):
               "missing_includes": [], "warnings": [], "n_bib_files": 0, "bib_missing": 0,
               "nodes": 0, "n_references": 0, "error": None}
     marker = Path(version_dir) / "metadata.json"
-    if not marker.exists():                                  # M1 never finished this version
+    manifest = Path(version_dir) / "manifest.json"
+    if not marker.exists() and not manifest.exists():
         record["status"] = "not_downloaded"
         return record, None, []
-    if read_json(marker)["stats"]["status"] != "ok":         # PDF-only etc.: empty record, kept
+    state = read_json(marker)["stats"]["status"] if marker.exists() else read_json(manifest).get("status")
+    if state in {"failed", "error", "download_failed"}:
+        record.update(status="not_downloaded", error=f"M1 source status: {state}")
+        return record, None, []
+    if state not in {"ok", "extracted", "empty", "no_tex"}:
+        record.update(status="not_downloaded", error=f"Unknown M1 source status: {state}")
+        return record, None, []
+    if state in {"empty", "no_tex"}:
         record["status"] = "empty"
         return record, None, []
     try:
@@ -120,12 +128,15 @@ def process_paper(job):
         return {"key": key, "status": "skipped"}
     started = time.perf_counter()
     try:
-        paper = read_json(paper_dir / "paper.json")
+        metadata = paper_dir / "paper.json"
+        legacy_layout = not metadata.exists()
+        paper = read_json(paper_dir / "paper_metadata.json" if legacy_layout else metadata)
         arxiv_id = paper["arxiv_id"]
         versions, trees, bib_by_version = [], {}, {}
         for version_info in sorted(paper["versions"], key=lambda v: v["version"]):
             number = version_info["version"]
-            record, tree, entries = parse_one_version(paper_dir / f"v{number}", timeout, bib_scope)
+            version_dir = paper_dir / "sources" / f"v{number}" if legacy_layout else paper_dir / f"v{number}"
+            record, tree, entries = parse_one_version(version_dir, timeout, bib_scope)
             record["version"] = number
             versions.append(record)
             if tree is not None:
@@ -133,9 +144,10 @@ def process_paper(job):
 
         # Order matters: unify references FIRST and rename the \cite keys, THEN compare texts,
         # otherwise the same sentence citing vaswani2017 (v1) / vit_transformer (v3) never matches.
-        bibtex, rename_map = unify_bibtex(bib_by_version) if bib_by_version else ([], {})
+        bibtex, version_maps = unify_bibtex(bib_by_version, versioned=True) if bib_by_version else ([], {})
         assembler = PaperAssembler(key, arxiv_id)
         for number in sorted(trees):
+            rename_map = version_maps.get(number, {})
             if rename_map:
                 for node in iter_nodes(trees[number]):
                     node.content = rename_cites(node.content, rename_map)
@@ -153,7 +165,8 @@ def process_paper(job):
             "versions": versions,
             "elements": [[r["element_id"], r["kind"], r["content"]] for r in assembler.element_rows()],
             "hierarchy": [[v, e, p] for v, e, p in assembler.hierarchy],
-            "bibtex": bibtex, "cite_renames": len(rename_map),
+            "bibtex": bibtex, "cite_renames": sum(len(m) for m in version_maps.values()),
+            "citation_aliases": version_maps,
             "stats": {**assembler.stats(), "bib_before_dedup": n_entries_before,
                       "bib_after_dedup": len(bibtex), "hierarchy_problems": len(problems)}})
         return {"key": key, "status": "done", "seconds": seconds,
@@ -165,7 +178,8 @@ def process_paper(job):
 
 # ----------------------------------------------------------------------------- run + tables
 def list_papers(corpus_dir, only=None, limit=None):
-    papers = [p for p in sorted(Path(corpus_dir).iterdir()) if (p / "paper.json").exists()]
+    papers = [p for p in sorted(Path(corpus_dir).iterdir())
+              if (p / "paper.json").exists() or (p / "paper_metadata.json").exists()]
     if only:
         papers = [p for p in papers if p.name in set(only)]
     return papers[:limit] if limit else papers

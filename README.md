@@ -23,28 +23,41 @@ The group is assigned **20,000 publications**: four non-overlapping ranges of 5,
 | 24127534 | Trương Quang Tạo | `2512.18231`–`2512.23230` |
 
 ## Milestone reports
+The latest verification report is [Milestone 2 validation](reports/milestone2_validation.md).
+Tests and local parsing of the available range were performed for this update; see the report for coverage and exclusions.
 
-The cumulative Jupyter Book is in `book/`: [Milestone 1](book/milestone1.md) and
-[Milestone 2](book/milestone2.md). The existing public book is at
-<https://denver1106.github.io/hcmus-project-arxiv/>; branch changes appear there only after deployment.
+The earlier Jupyter Book remains at <https://denver1106.github.io/hcmus-project-arxiv/>.
+Upstream removed `book/` and its deployment workflow after PR #7. This branch does not
+change that published site; its historical book source remains on `codex/milestone2-report-bibitem`.
 
-Build the report (no crawling or corpus parsing):
+## Verify and aggregate existing local sources
+
+The parser supports both `corpus/<paper>/paper.json + vN/metadata.json` and
+`work/raw/<paper>/paper_metadata.json + sources/vN/manifest.json`.
 
 ```bash
-pip install -r book/requirements.txt
-jupyter-book build book
+pip install -r src/requirements.txt
+python -m unittest discover -s tests -v
+python src/tools/audit_m2.py --corpus-dir /path/to/work/raw --output-dir /path/to/fresh-validation --sample 100 --workers 2
+# Omit --sample for all available publications:
+python src/tools/audit_m2.py --corpus-dir /path/to/work/raw --output-dir /path/to/fresh-full --workers 4 --timeout 30
+python src/tools/export_verified_m2.py --parsed-dir /path/to/fresh-full/parsed --output-dir /path/to/fresh-export
 ```
 
-M2 tables and figures
-are generated during compilation by `book/report_metrics.py`. To include actual M2 results,
-set `M2_PARSED_DIRS` to the four `parsed/` paths and `M2_METRICS_FILES` to their
-`parse_metrics.json` paths (separate paths with `os.pathsep`: `:` on Linux/macOS, `;` on Windows).
-No source corpus is read or parsed by the report build. Without these inputs, the report explicitly
-marks the measurements unavailable. See the report for the required Colab CPU benchmark and schema.
+Each validation directory has a source fingerprint, per-paper JSON, coverage CSV,
+publication statistics, unresolved citations, reference-review JSONL and a summary.
+Changed parser revisions require a fresh output directory. Input files are read only.
+Same-version keys identifying contradictory references are quarantined as explicit paper failures.
 
-This branch includes focused regression cases in `tests/test_bibitem_fields.py` for the
-reference-field fix. Legacy tests were removed on upstream `main`.
-No tests, crawling or full-corpus parsing were executed for this update.
+To aggregate four completed ranges without reparsing:
+
+```bash
+python src/tools/audit_m2.py --aggregate-parsed /range1/parsed /range2/parsed /range3/parsed /range4/parsed --output-dir /path/to/group-summary
+```
+
+Aggregation rejects duplicate publications and mixed parser fingerprints. Absent ranges
+remain missing, rather than being extrapolated. JSON retains field conflicts and key provenance;
+the three Parquet tables retain the statement's schema.
 
 ---
 
@@ -80,8 +93,8 @@ No tests, crawling or full-corpus parsing were executed for this update.
 |   |-- refs.py                  # M2: \bibitem/.bib -> BibTeX, reference dedup, \cite renaming  (reference module)
 |   |-- dev_stubs.py             # historical test doubles; not used by the real pipeline
 |-- tests/
-|   |-- test_bibitem_fields.py   # focused reference-field regression cases
-|-- book/                       # cumulative Jupyter Book reports
+|   |-- test_*.py                # hierarchy, references, pipeline, monitoring and Parquet tests
+|-- reports/                    # verification scope, measured results and remaining issues
 ```
 
 `pipeline.py` imports `hier_parser` and `refs` directly. Missing modules are an installation
@@ -336,11 +349,13 @@ parse_document(text: str) -> Node                # root kind "document"; text = 
 # refs.py
 extract_references(gathered, version_dir, bib_scope="cited") -> list[dict]
     # dict keys: citation_key, entry_type, title, authors(list[str]), year(int|None), doi, journal, url
-unify_bibtex({version: [entry, ...]}) -> (unified_entries, {dropped_key: chosen_key})
+unify_bibtex({version: [entry, ...]}, versioned=True) -> (unified_entries, {version: {old_key: chosen_key}})
 rename_cites(text, {dropped_key: chosen_key}) -> str
 ```
-`unify_bibtex` must keep one key per distinct reference, unionize the fields of duplicates, and never
-merge entries that lack the information to be compared (e.g. entries with no title).
+`unify_bibtex` uses DOI first, then compatible title/key evidence. Missing titles may be
+matched by key when the other metadata does not contradict the match. Author lists are unionized;
+scalar disagreements and source keys remain in JSON for review. Pipeline citation renaming is
+version-specific. The legacy flat-map API refuses ambiguous key reuse across versions.
 
 ---
 
@@ -387,9 +402,10 @@ use `--limit`.
 python -m unittest discover -s tests -v      # standard library only; pytest also works
 ```
 
-`test_bibitem_fields.py` covers initials, author-year references, apostrophes, quoted titles,
-formatted venues, explicit `bibinfo` fields and ambiguous entries. These cases have been added
-but not executed in this update, following the requested no-tests constraint.
+Tests exercise real parser/reference modules as well as isolated pipeline plumbing. Regressions
+include accented names, author-year styles, mixed quotes, malformed math, large shared BibTeX
+libraries, complementary author lists, DOI conflicts and citation-key reuse across versions.
+Parquet checks require pandas/pyarrow. The validation report records actual executions.
 
 ## 7. Performance measurement
 
@@ -436,4 +452,3 @@ run only measures the part that was re-executed.
 - `.bib` files are only read when declared with `\bibliography{}` / `\addbibresource{}`; `.bbl` files are not
   part of the corpus (Milestone 1 keeps `.tex` and `.bib` only).
 - The measured numbers of a run (timing, RAM, sizes) belong in the report, not in this file.
-  numbers in the report, not in this file.
