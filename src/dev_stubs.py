@@ -106,7 +106,7 @@ def extract_references(gathered, version_dir, bib_scope="cited"):
     return entries
 
 
-def unify_bibtex(per_version):
+def unify_bibtex(per_version, *, versioned=False):
     """per_version: {version: [entry dicts]} -> (unified entries, {dropped_key: chosen_key})."""
     chosen, mapping = {}, {}
     for version in sorted(per_version):
@@ -118,6 +118,10 @@ def unify_bibtex(per_version):
                     kept[field_name] = value
             if entry["citation_key"] != kept["citation_key"]:
                 mapping[entry["citation_key"]] = kept["citation_key"]
+    if versioned:
+        return list(chosen.values()), {
+            v: {e["citation_key"]: mapping[e["citation_key"]] for e in entries if e["citation_key"] in mapping}
+            for v, entries in per_version.items()}
     return list(chosen.values()), mapping
 
 
