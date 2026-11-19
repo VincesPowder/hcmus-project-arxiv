@@ -67,6 +67,8 @@ Hai version no_root thuộc 2606.03051: source là plain TeX, không có documen
 | Nodes, không tính document roots | 3.086.577 | 2.381.064 | 22,86% |
 | Reference entries | 255.551 | 191.103 | 25,22% |
 
+Mốc 255.551 là số entry đưa vào `unify_bibtex`, sau khi đối chiếu bản render `bibitem` với entry `.bib` cùng key trong từng version; không phải số record thô của mọi thư viện `.bib` trước bước lọc citation. Mốc 191.103 là số reference hợp nhất theo publication.
+
 | Parquet table | Số dòng đã kiểm tra |
 |---|---:|
 | elements, gồm 6.392 roots | 2.387.456 |
