@@ -106,7 +106,7 @@ def extract_references(gathered, version_dir, bib_scope="cited"):
     return entries
 
 
-def unify_bibtex(per_version, *, versioned=False):
+def unify_bibtex(per_version, *, versioned=False, conflict_policy="raise"):
     """per_version: {version: [entry dicts]} -> (unified entries, {dropped_key: chosen_key})."""
     chosen, mapping = {}, {}
     for version in sorted(per_version):

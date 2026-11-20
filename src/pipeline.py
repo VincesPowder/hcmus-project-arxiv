@@ -27,7 +27,7 @@ from pathlib import Path
 from assemble import PaperAssembler, iter_nodes
 from gather import gather_version
 from hier_parser import parse_document                                    # B: real parser
-from refs import extract_references, unify_bibtex, rename_cites           # C: real references
+from refs import extract_references, unify_bibtex, rename_cites, reference_conflicts
 
 LOGGER = logging.getLogger("m2.pipeline")
 FAIL_STATUSES = {"parse_error", "timeout", "no_root", "not_downloaded"}
@@ -144,7 +144,9 @@ def process_paper(job):
 
         # Order matters: unify references FIRST and rename the \cite keys, THEN compare texts,
         # otherwise the same sentence citing vaswani2017 (v1) / vit_transformer (v3) never matches.
-        bibtex, version_maps = unify_bibtex(bib_by_version, versioned=True) if bib_by_version else ([], {})
+        bibtex, version_maps = unify_bibtex(
+            bib_by_version, versioned=True, conflict_policy="preserve") if bib_by_version else ([], {})
+        conflicts = reference_conflicts(bibtex)
         assembler = PaperAssembler(key, arxiv_id)
         for number in sorted(trees):
             rename_map = version_maps.get(number, {})
@@ -167,9 +169,11 @@ def process_paper(job):
             "hierarchy": [[v, e, p] for v, e, p in assembler.hierarchy],
             "bibtex": bibtex, "cite_renames": sum(len(m) for m in version_maps.values()),
             "citation_aliases": version_maps,
+            "reference_conflicts": conflicts,
             "stats": {**assembler.stats(), "bib_before_dedup": n_entries_before,
                       "bib_after_dedup": len(bibtex), "hierarchy_problems": len(problems)}})
         return {"key": key, "status": "done", "seconds": seconds,
+                "n_reference_conflicts": len(conflicts),
                 "n_failed_versions": sum(r["status"] in FAIL_STATUSES for r in versions)}
     except Exception as error:  # noqa: BLE001
         return {"key": key, "status": "failed", "error": f"{type(error).__name__}: {error}",

@@ -28,7 +28,7 @@ RANGES = [
 
 def audit(parsed_dir, output, run=None):
     statuses, totals, kinds, issues = Counter(), Counter(), Counter(), Counter()
-    coverage, publication_rows, ref_review, unresolved = [], [], [], []
+    coverage, publication_rows, ref_review, unresolved, conflicts = [], [], [], [], []
     seen, per_range = set(), Counter()
     directories = [parsed_dir] if isinstance(parsed_dir, (str, Path)) else parsed_dir
     paths = [path for directory in directories for path in sorted(Path(directory).glob("*.json"))]
@@ -55,6 +55,10 @@ def audit(parsed_dir, output, run=None):
         elements = {e: (kind, text) for e, kind, text in data["elements"]}
         kinds.update(kind for kind, _ in elements.values())
         refs = {e["citation_key"]: e for e in data["bibtex"]}
+        paper_conflicts = data.get("reference_conflicts", [])
+        conflicts.extend({"arxiv_id": paper, **record} for record in paper_conflicts)
+        issues["ambiguous_citation_keys"] += len(paper_conflicts)
+        issues["publications_with_reference_conflicts"] += bool(paper_conflicts)
         if len(refs) != len(data["bibtex"]):
             issues["duplicate_canonical_keys"] += 1
         for entry in data["bibtex"]:
@@ -65,7 +69,8 @@ def audit(parsed_dir, output, run=None):
                 issues["references_with_conflicts"] += 1
             if entry.get("extraction_conflicts"):
                 issues["references_with_extraction_conflicts"] += 1
-            if not entry.get("title") or not entry.get("authors") or entry.get("field_conflicts") or entry.get("extraction_conflicts"):
+            if (not entry.get("title") or not entry.get("authors") or entry.get("field_conflicts")
+                    or entry.get("extraction_conflicts") or entry.get("ambiguous_source_keys")):
                 ref_review.append({"arxiv_id": paper, **entry})
         for v in data["versions"]:
             statuses[v["status"]] += 1
@@ -92,6 +97,9 @@ def audit(parsed_dir, output, run=None):
     # JSONL retains arrays, field conflicts and provenance for manual review.
     with (output / "reference_review.jsonl").open("w", encoding="utf-8") as handle:
         for row in ref_review:
+            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+    with (output / "reference_conflicts.jsonl").open("w", encoding="utf-8") as handle:
+        for row in conflicts:
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
     summary = {"publications": len(seen), "version_statuses": dict(statuses),
                "totals": dict(totals), "element_kinds": dict(kinds), "quality_flags": dict(issues),

@@ -58,6 +58,43 @@ class ReferenceUnion(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "conflicting references"):
             refs.unify_bibtex({1: [entry("k", title="A"), entry("k", title="B")]}, versioned=True)
 
+    def test_preserve_conflicts_keeps_candidates_without_resolving_ambiguous_citation(self):
+        result, maps = refs.unify_bibtex({
+            1: [entry("k", title="A")],
+            2: [entry("k", title="A"), entry("k", title="B"),
+                entry("k", title="C"), entry("k", title="B")],
+            3: [entry("k", title="C")]}, versioned=True, conflict_policy="preserve")
+        self.assertEqual(len(result), 3)
+        keys = [e["citation_key"] for e in result]
+        self.assertNotIn("k", keys)
+        self.assertEqual(maps, {1: {"k": keys[0]}, 2: {}, 3: {"k": keys[2]}})
+        self.assertEqual(refs.reference_conflicts(result), [{
+            "version": 2, "citation_key": "k", "candidate_keys": keys,
+            "reason": "conflicting_reference_identity"}])
+        self.assertEqual(refs.rename_cites(r"See \cite{k}.", maps[2]), r"See \cite{k}.")
+
+    def test_generated_keys_do_not_steal_real_source_keys(self):
+        result, maps = refs.unify_bibtex({1: [
+            entry("k", title="A"), entry("k", title="B"),
+            entry("k__2", title="C"), entry("k__candidate", title="D")
+        ]}, versioned=True, conflict_policy="preserve")
+        keys = [e["citation_key"] for e in result]
+        self.assertEqual(len(set(keys)), 4)
+        self.assertNotIn("k", keys)
+        self.assertEqual(keys[2:], ["k__2", "k__candidate"])
+        self.assertEqual(maps, {1: {}})
+
+    def test_identical_duplicates_remain_unambiguous(self):
+        result, maps = refs.unify_bibtex({1: [entry("k", title="A"), entry("k", title="A")]},
+                                       versioned=True, conflict_policy="preserve")
+        self.assertEqual(len(result), 1)
+        self.assertEqual(maps, {1: {}})
+        self.assertEqual(refs.reference_conflicts(result), [])
+
+    def test_preserve_requires_versioned_mapping(self):
+        with self.assertRaisesRegex(ValueError, "versioned=True"):
+            refs.unify_bibtex({}, conflict_policy="preserve")
+
     def test_more_citation_commands(self):
         self.assertEqual(refs.rename_cites(r"\parencite [p. 2] {old} \autocite{old} \textcite{old}",
                                           {"old": "new"}),

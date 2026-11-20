@@ -473,15 +473,32 @@ def _union_authors(left, right):
     return result
 
 
-def unify_bibtex(per_version: dict, *, versioned=False) -> tuple[list[dict], dict]:
+def unify_bibtex(per_version: dict, *, versioned=False, conflict_policy="raise") -> tuple[list[dict], dict]:
     """Indexed dedup, field union and JSON conflict/source-key provenance.
 
     DOI is strongest evidence. Equal titles or matching keys with missing title
     are accepted only without contradictory DOI/year/author evidence.
-    versioned=True returns {version: {old_key: canonical_key}}.
+    versioned=True returns {version: {old_key: canonical_key}}. With
+    conflict_policy="preserve", ambiguous same-version keys remain unresolved;
+    all candidates survive with ambiguous_source_keys provenance. The original
+    ambiguous key is never a canonical key, so a join cannot silently choose one.
     """
+    if conflict_policy not in {"raise", "preserve"}:
+        raise ValueError("Unknown reference conflict policy")
+    if conflict_policy == "preserve" and not versioned:
+        raise ValueError("Preserving ambiguous references requires versioned=True")
     entries, indexes, used = [], defaultdict(set), set()
-    aliases = {v: {} for v in per_version}
+    targets = defaultdict(set)
+    source_keys = {(e.get("citation_key") or "").strip()
+                   for refs in per_version.values() for e in refs}
+
+    def allocate(base, original=""):
+        canonical, suffix = base, 2
+        while canonical in used or (canonical in source_keys and canonical != original):
+            canonical = f"{base}__{suffix}"
+            suffix += 1
+        used.add(canonical)
+        return canonical
 
     def compatible(a, b):
         da, db = _doi(a.get("doi")), _doi(b.get("doi"))
@@ -513,12 +530,7 @@ def unify_bibtex(per_version: dict, *, versioned=False) -> tuple[list[dict], dic
                     break
             if candidate is None:
                 candidate = len(entries)
-                canonical = key or f"reference_{candidate + 1}"
-                suffix, base = 2, canonical
-                while canonical in used:
-                    canonical = f"{base}__{suffix}"
-                    suffix += 1
-                used.add(canonical)
+                canonical = allocate(key or f"reference_{candidate + 1}", key)
                 kept = dict(entry, citation_key=canonical, authors=_union_authors([], entry.get("authors")))
                 kept["source_keys"] = []
                 entries.append(kept)
@@ -545,10 +557,23 @@ def unify_bibtex(per_version: dict, *, versioned=False) -> tuple[list[dict], dic
                 if value:
                     indexes[(field, value)].add(candidate)
             if key:
-                existing = aliases[version].get(key)
-                if existing and existing != kept["citation_key"]:
+                targets[(version, key)].add(candidate)
+                if len(targets[(version, key)]) > 1 and conflict_policy == "raise":
                     raise ValueError(f"v{version}: citation key {key!r} identifies conflicting references")
-                aliases[version][key] = kept["citation_key"]
+
+    ambiguous = {(v, k): ids for (v, k), ids in targets.items() if len(ids) > 1}
+    blocked_keys = {k for _, k in ambiguous}
+    for entry in entries:
+        if entry["citation_key"] in blocked_keys:
+            entry["citation_key"] = allocate(entry["citation_key"] + "__candidate")
+    for (version, key), candidates in sorted(ambiguous.items()):
+        for index in sorted(candidates):
+            entries[index].setdefault("ambiguous_source_keys", []).append(
+                {"version": version, "citation_key": key})
+    aliases = {v: {} for v in per_version}
+    for (version, key), candidates in targets.items():
+        if len(candidates) == 1:
+            aliases[version][key] = entries[next(iter(candidates))]["citation_key"]
 
     if versioned:
         return entries, {v: {k: dest for k, dest in m.items() if k != dest} for v, m in aliases.items()}
@@ -559,6 +584,18 @@ def unify_bibtex(per_version: dict, *, versioned=False) -> tuple[list[dict], dic
     if any(len(values) > 1 for values in destinations.values()):
         raise ValueError("Citation keys reused across versions; use versioned=True")
     return entries, {k: next(iter(values)) for k, values in destinations.items() if k not in values}
+
+
+def reference_conflicts(entries):
+    """Group ambiguous source keys with all candidate canonical references."""
+    conflicts = {}
+    for entry in entries:
+        for source in entry.get("ambiguous_source_keys", []):
+            key = (source["version"], source["citation_key"])
+            record = conflicts.setdefault(key, {
+                **source, "candidate_keys": [], "reason": "conflicting_reference_identity"})
+            record["candidate_keys"].append(entry["citation_key"])
+    return [conflicts[key] for key in sorted(conflicts)]
 
 
 _CITE_RE = re.compile(r"(\\[A-Za-z]*cite[A-Za-z]*\*?\s*(?:\[[^\]]*\]\s*)*\{)([^{}]*)(\})", re.IGNORECASE)

@@ -89,6 +89,15 @@ If every publication fails, no data rows are fabricated; the notebook shows the 
 and skips preview of a nonexistent export. Individual paper failures do not prevent
 exporting good papers. A `partial` result is not full group completion.
 
+Repeated citation keys with conflicting metadata no longer discard a publication.
+The parser preserves the tree and all reference candidates, assigns distinct canonical
+keys, and leaves the ambiguous citation unresolved. Inspect `reference_conflicts` in
+`parsed/<paper>.json`, `audit/reference_conflicts.jsonl` and
+`audit/unresolved_citations.csv`. Candidate provenance is also retained in each JSON
+reference's `ambiguous_source_keys`. Parquet retains the separate candidate rows;
+the JSON/audit files explain their ambiguity. Such runs remain `partial` until reviewed.
+An unchanged source conflict is not reparsed on resume; source edits require a fresh run.
+
 Drive output supports resume. Source/input/configuration changes require a fresh `RUN_DIR`;
 changing only worker count is allowed. Successful JSON is reused, and incomplete versions
 can be retried. Every export uses a new directory to avoid stale shards.

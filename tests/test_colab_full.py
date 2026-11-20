@@ -36,10 +36,10 @@ class FullColabNotebook(unittest.TestCase):
                 "refs.bib": "@article{k2,title={A useful paper},author={Doe, Jane and Roe, John},doi={10.1000/x}}"},
             3: "no_tex",
         })
-        # A genuine same-version key conflict must not stop export of good papers.
+        # Preserve the conflicted paper too, without choosing one reference.
         make_paper(canonical, "2606-00735", "2606.00735", {
             1: {"main.tex": DOC % (
-                r"\section{Body}Text.\begin{thebibliography}{9}"
+                r"\section{Body}Text \cite{k}.\begin{thebibliography}{9}"
                 r"\bibitem{k}Jane Doe. First work. 2020."
                 r"\bibitem{k}John Roe. Different work. 2021.\end{thebibliography}")}})
         paper = legacy / "2605.02338"
@@ -82,10 +82,17 @@ class FullColabNotebook(unittest.TestCase):
             result = namespace["RESULT"]
             self.assertEqual(result["status"], "partial")
             self.assertEqual(result["summary"]["selected_publications"], 3)
-            self.assertEqual(result["summary"]["publications"], 2)
-            self.assertEqual(result["summary"]["version_statuses"], {"parsed": 3, "empty": 1})
-            self.assertEqual(result["summary"]["versions_without_paper_output"], 1)
-            self.assertEqual(result["export"]["table_rows"]["bibtex"], 1)
+            self.assertEqual(result["summary"]["publications"], 3)
+            self.assertEqual(result["summary"]["version_statuses"], {"parsed": 4, "empty": 1})
+            self.assertEqual(result["summary"]["versions_without_paper_output"], 0)
+            self.assertEqual(result["summary"]["quality_flags"]["ambiguous_citation_keys"], 1)
+            self.assertEqual(result["summary"]["unresolved_citation_occurrences"], 1)
+            self.assertEqual(result["export"]["table_rows"]["bibtex"], 3)
+            conflicted = json.loads((root / "run/parsed/2606-00735.json").read_text())
+            self.assertEqual(len(conflicted["reference_conflicts"]), 1)
+            self.assertNotIn("k", {e["citation_key"] for e in conflicted["bibtex"]})
+            self.assertEqual(len((root / "run/audit/reference_conflicts.jsonl").read_text().splitlines()), 1)
+            self.assertEqual(json.loads((root / "run/paper_failures.json").read_text()), [])
             self.assertTrue((root / "run/reports.zip").is_file())
             self.assertTrue((root / "run/figures/version_status.png").is_file())
             self.assertTrue((root / "run/figures/dedup_counts.png").is_file())
@@ -98,9 +105,10 @@ class FullColabNotebook(unittest.TestCase):
             data = json.loads((root / "run/parsed/2606-00734.json").read_text())
             self.assertEqual(data["bibtex"][0]["authors"], ["Jane Doe", "John Roe"])
             self.assertEqual(data["stats"]["hierarchy_problems"], 0)
-            # Resume reruns the quarantined paper, skips valid JSON, exports fresh shards.
+            # An unchanged source conflict needs review, not repeated identical parsing.
             rerun = run_full([str(p) for p in inputs], root / "run", workers=1)
-            self.assertEqual(rerun["metrics"]["status_counts"], {"skipped": 2, "failed": 1})
+            self.assertEqual(rerun["metrics"]["status_counts"], {"skipped": 3})
+            self.assertEqual(rerun["status"], "partial")
             self.assertNotEqual(rerun["export"]["directory"], result["export"]["directory"])
             with self.assertRaisesRegex(ValueError, "changed"):
                 run_full([str(p) for p in inputs], root / "run", workers=1, timeout=30)

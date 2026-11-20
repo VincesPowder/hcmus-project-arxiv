@@ -178,7 +178,8 @@ def run_full(corpus_dirs, run_dir, *, workers=2, timeout=120, bib_scope="cited",
     summary["versions_without_paper_output"] = sum(
         len(p["versions"]) for p in selected if not (parsed / f"{p['paper_key']}.json").exists())
     write_json_atomic(audit_dir / "summary.json", summary)
-    incomplete = any(summary["version_statuses"].get(s, 0) for s in FAIL_STATUSES)
+    incomplete = (any(summary["version_statuses"].get(s, 0) for s in FAIL_STATUSES)
+                  or summary["quality_flags"].get("ambiguous_citation_keys", 0) > 0)
     result = {"status": "partial" if failures or incomplete else "complete_for_selected_input",
               "run_dir": str(run_dir), "parsed_dir": str(parsed), "audit_dir": str(audit_dir),
               "export": exported, "metrics": metrics, "summary": summary,
@@ -196,7 +197,8 @@ def make_reports_zip(run_dir):
     candidates = [run_dir / p for p in ("input_inventory.json", "source_fingerprint.json",
                   "run_identity.json", "paper_failures.json", "latest_result.json", "work/parse_metrics.json",
                   "audit/summary.json", "audit/coverage.csv", "audit/publications.csv",
-                  "audit/unresolved_citations.csv", "work/parse_errors.jsonl")]
+                  "audit/unresolved_citations.csv", "audit/reference_conflicts.jsonl",
+                  "work/parse_errors.jsonl")]
     result = read_json(run_dir / "latest_result.json")
     if result.get("export"):
         candidates.append(Path(result["export"]["directory"]) / "export_validation.json")
