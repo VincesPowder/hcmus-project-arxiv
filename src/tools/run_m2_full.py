@@ -14,43 +14,59 @@ import time
 import uuid
 import zipfile
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from pipeline import FAIL_STATUSES, list_papers, process_paper, read_json, write_json_atomic, directory_size_bytes
+from pipeline import FAIL_STATUSES, process_paper, read_json, write_json_atomic, directory_size_bytes
 from crawler_monitor import ResourceMonitor
 from tools.audit_m2 import audit
 from tools.export_verified_m2 import export
 
 
+def _inventory_paper(folder):
+    # Reading once avoids repeated remote stat calls on Drive/FUSE. Only small
+    # metadata files are read concurrently; source parsing remains CPU bounded.
+    for filename in ("paper.json", "paper_metadata.json"):
+        marker = folder / filename
+        try:
+            raw = marker.read_bytes()
+        except (FileNotFoundError, NotADirectoryError):
+            continue
+        data = json.loads(raw)
+        numbers = [v["version"] for v in data["versions"]]
+        if not numbers or any(type(n) is not int or n < 1 for n in numbers) or len(set(numbers)) != len(numbers):
+            raise ValueError(f"Invalid/duplicate version numbers: {marker}")
+        return {"arxiv_id": data["arxiv_id"], "paper_key": folder.name, "path": str(folder),
+                "versions": sorted(numbers), "metadata_sha256": hashlib.sha256(raw).hexdigest()}
+    return None
+
+
 def inventory(corpus_dirs):
-    """Validate metadata without reading large TeX/BibTeX libraries."""
+    """Validate metadata with at most eight concurrent small-file readers."""
     papers, ids, keys = [], set(), set()
     versions = 0
     for value in corpus_dirs:
         root = Path(value).expanduser().resolve()
         if not root.is_dir():
             raise FileNotFoundError(f"Corpus directory does not exist: {root}")
-        found = list_papers(root)
+        found = []
+        # map preserves sorted input order, independent of read completion order.
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            for paper in pool.map(_inventory_paper, sorted(root.iterdir())):
+                if paper is not None:
+                    found.append(paper)
         if not found:
             raise ValueError(f"No paper.json/paper_metadata.json in child folders of {root}. "
                              "Select corpus/ or work/raw/, not a single version or a parent archive directory.")
-        for folder in found:
-            marker = folder / "paper.json"
-            marker = marker if marker.is_file() else folder / "paper_metadata.json"
-            raw = marker.read_bytes()
-            data = json.loads(raw)
-            arxiv_id = data["arxiv_id"]
-            numbers = [v["version"] for v in data["versions"]]
-            if not numbers or any(type(n) is not int or n < 1 for n in numbers) or len(set(numbers)) != len(numbers):
-                raise ValueError(f"Invalid/duplicate version numbers: {marker}")
-            if arxiv_id in ids or folder.name in keys:
-                raise ValueError(f"Duplicate publication or output filename: {arxiv_id} ({folder})")
+        for paper in found:
+            arxiv_id = paper["arxiv_id"]
+            if arxiv_id in ids or paper["paper_key"] in keys:
+                raise ValueError(f"Duplicate publication or output filename: {arxiv_id} ({paper['path']})")
             ids.add(arxiv_id)
-            keys.add(folder.name)
-            versions += len(numbers)
-            papers.append({"arxiv_id": arxiv_id, "paper_key": folder.name, "path": str(folder),
-                           "versions": sorted(numbers), "metadata_sha256": hashlib.sha256(raw).hexdigest()})
+            keys.add(paper["paper_key"])
+            versions += len(paper["versions"])
+            papers.append(paper)
     if not papers:
         raise ValueError("No publications selected")
     return {"publications": len(papers), "declared_versions": versions, "papers": papers}
@@ -68,6 +84,7 @@ def run_full(corpus_dirs, run_dir, *, workers=2, timeout=120, bib_scope="cited",
         raise ValueError("workers, timeout and shard_size must be positive; limit must be >= 0")
     if bib_scope not in {"cited", "all"}:
         raise ValueError("bib_scope must be cited or all")
+    print("Checking input metadata (up to eight concurrent readers)...", flush=True)
     inputs = inventory(corpus_dirs)
     selected = inputs["papers"][:limit] if limit else inputs["papers"]
     run_dir = Path(run_dir).expanduser().resolve()

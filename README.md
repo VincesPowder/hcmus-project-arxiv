@@ -50,6 +50,10 @@ No tests, crawling or full-corpus parsing were executed for this update.
 
 ## Run the full Milestone 2 notebook on Colab
 
+Metadata inventory uses at most eight concurrent readers to reduce small-file
+latency on Drive. The notebook streams child-process logs into cell output, so
+parse progress and failures remain visible while the full run is in progress.
+
 [Open the notebook from m3-data-split](https://colab.research.google.com/github/VincesPowder/hcmus-project-arxiv/blob/m3-data-split/src/milestone2.ipynb).
 
 Choose **CPU**, edit `CORPUS_DIRS` and `RUN_DIR` in the configuration cell, then **Run all**.

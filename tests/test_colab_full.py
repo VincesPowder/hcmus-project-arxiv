@@ -3,10 +3,13 @@
 No Drive, network, crawl or full-corpus parsing is used by these tests.
 """
 import contextlib
+import ast
 import importlib.util
 import io
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -17,6 +20,25 @@ from src.tools.export_verified_m2 import export
 
 READY = all(importlib.util.find_spec(m) for m in ("pandas", "pyarrow", "psutil", "matplotlib"))
 REPO = Path(__file__).resolve().parents[1]
+
+
+class NotebookCommand(unittest.TestCase):
+    def test_child_logs_and_nonzero_exit_are_visible_in_notebook(self):
+        notebook = json.loads((REPO / "src/milestone2.ipynb").read_text())
+        tree = ast.parse("".join(notebook["cells"][3]["source"]))
+        definition = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "command")
+        namespace = {"subprocess": subprocess}
+        exec(compile(ast.Module(body=[definition], type_ignores=[]), "notebook-command", "exec"), namespace)
+        command = namespace["command"]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            with self.assertRaises(subprocess.CalledProcessError) as error:
+                command([sys.executable, "-c", "import sys; print('progress'); print('failure',file=sys.stderr); sys.exit(7)"])
+        self.assertEqual(error.exception.returncode, 7)
+        self.assertIn("progress", output.getvalue())
+        self.assertIn("failure", output.getvalue())
+        captured = command([sys.executable, "-c", "print('json-result')"], capture_output=True, text=True)
+        self.assertEqual(captured.stdout.strip(), "json-result")
 
 
 @unittest.skipUnless(READY, "Full M2 notebook dependencies required")
@@ -133,6 +155,23 @@ class FullColabNotebook(unittest.TestCase):
                 inventory([root / "corpus", root / "corpus"])
             with self.assertRaisesRegex(ValueError, "separate"):
                 run_full([str(root / "corpus")], root / "corpus/run", workers=1)
+
+    def test_inventory_ignores_auxiliary_children_and_validates_all_versions(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            inputs = self.fixture(root)
+            (inputs[0] / ".DS_Store").write_text("auxiliary file")
+            (inputs[0] / "unrelated").mkdir()
+            result = inventory(inputs)
+            self.assertEqual(result["publications"], 3)
+            self.assertEqual(result["declared_versions"], 5)
+            self.assertEqual([p["arxiv_id"] for p in result["papers"]], ["2606.00734", "2606.00735", "2605.02338"])
+            marker = inputs[0] / "2606-00734/paper.json"
+            data = json.loads(marker.read_text())
+            data["versions"].append(data["versions"][0])
+            marker.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, "Invalid/duplicate version"):
+                inventory(inputs)
 
     def test_nonempty_output_without_identity_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
