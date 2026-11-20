@@ -21,14 +21,31 @@ def export(parsed, destination, shard_size=250):
             raise ValueError(f"Invalid hierarchy: {data['arxiv_id']}")
         for table in expected:
             expected[table] += len(data[table])
-    if not any(expected.values()):
+    if not any(parsed.glob("*.json")):
         raise ValueError("No parsed records to export")
     papers = build_logs_and_tables(parsed, destination / "logs", destination / "tables", shard_size)
+    # Every run has all three typed datasets, even when no references or TeX
+    # elements were available. A missing directory is not an empty dataset.
+    import pyarrow.parquet as pq
+    string, dictionary = pa.string(), pa.dictionary(pa.int32(), pa.string())
+    empty_schemas = {
+        "elements": pa.schema([pa.field("element_id", string, False), pa.field("arxiv_id", string, False),
+                               pa.field("kind", dictionary), pa.field("content", string)]),
+        "hierarchy": pa.schema([pa.field("arxiv_id", string, False), pa.field("version", pa.int32()),
+                                pa.field("element_id", string, False), pa.field("parent_id", string, False)]),
+        "bibtex": pa.schema([pa.field("arxiv_id", string, False), pa.field("citation_key", string, False),
+                             pa.field("entry_type", dictionary), pa.field("title", string),
+                             pa.field("authors", pa.list_(string)), pa.field("year", pa.int32()),
+                             pa.field("doi", string), pa.field("journal", string), pa.field("url", string)]),
+    }
+    for table, n_rows in expected.items():
+        if n_rows == 0:
+            folder = destination / "tables" / table
+            folder.mkdir(parents=True, exist_ok=True)
+            pq.write_table(pa.Table.from_batches([], schema=empty_schemas[table]),
+                           folder / f"{table}-00000.parquet", compression="zstd")
     counts = {}
     for table, n_rows in expected.items():
-        if not n_rows:
-            counts[table] = 0
-            continue
         dataset = ds.dataset(destination / "tables" / table, format="parquet")
         if dataset.count_rows() != n_rows:
             raise ValueError(f"Row count mismatch in {table}")
