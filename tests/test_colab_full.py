@@ -60,7 +60,7 @@ class FullColabNotebook(unittest.TestCase):
             3: "no_tex",
         })
         # Preserve the conflicted paper too, without choosing one reference.
-        make_paper(canonical, "2606-00735", "2606.00735", {
+        make_paper(canonical, "2606-01068", "2606.01068", {
             1: {"main.tex": DOC % (
                 r"\section{Body}Text \cite{k}.\begin{thebibliography}{9}"
                 r"\bibitem{k}Jane Doe. First work. 2020."
@@ -111,11 +111,17 @@ class FullColabNotebook(unittest.TestCase):
             self.assertEqual(result["summary"]["quality_flags"]["ambiguous_citation_keys"], 1)
             self.assertEqual(result["summary"]["unresolved_citation_occurrences"], 1)
             self.assertEqual(result["export"]["table_rows"]["bibtex"], 3)
-            conflicted = json.loads((root / "run/parsed/2606-00735.json").read_text())
+            conflicted = json.loads((root / "run/parsed/2606-01068.json").read_text())
             self.assertEqual(len(conflicted["reference_conflicts"]), 1)
             self.assertNotIn("k", {e["citation_key"] for e in conflicted["bibtex"]})
             self.assertEqual(len((root / "run/audit/reference_conflicts.jsonl").read_text().splitlines()), 1)
             self.assertEqual(json.loads((root / "run/paper_failures.json").read_text()), [])
+            verification = json.loads((root / "run/pipeline_verification.json").read_text())
+            self.assertEqual(verification["checks"], "passed")
+            self.assertEqual(verification["run_status"], "partial")
+            self.assertEqual(verification["version_records"], 5)
+            self.assertEqual(verification["previously_failing_papers_checked"], 1)
+            self.assertEqual(verification["recovered_papers"][0]["reference_conflicts"], 1)
             self.assertTrue((root / "run/reports.zip").is_file())
             self.assertTrue((root / "run/figures/version_status.png").is_file())
             self.assertTrue((root / "run/figures/dedup_counts.png").is_file())
@@ -176,7 +182,7 @@ class FullColabNotebook(unittest.TestCase):
             result = inventory(inputs)
             self.assertEqual(result["publications"], 3)
             self.assertEqual(result["declared_versions"], 5)
-            self.assertEqual([p["arxiv_id"] for p in result["papers"]], ["2606.00734", "2606.00735", "2605.02338"])
+            self.assertEqual([p["arxiv_id"] for p in result["papers"]], ["2606.00734", "2606.01068", "2605.02338"])
             marker = inputs[0] / "2606-00734/paper.json"
             data = json.loads(marker.read_text())
             data["versions"].append(data["versions"][0])

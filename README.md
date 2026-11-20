@@ -68,6 +68,13 @@ parses every declared version, applies version-specific reference aliases, audit
 exports fresh Parquet shards and displays actual coverage/quality/performance.
 It never crawls or downloads the corpus.
 
+The final notebook cell writes `pipeline_verification.json` and checks selected-input
+coverage, schema and the previously failing publications present in that input. It raises
+if those checks fail, after preserving exported files. Passing these checks does not clear
+reference/source quality flags or turn a `partial` result into full M2 completion.
+The [verified 5,000-paper Colab run](reports/m2_colab_full_2606_20261120.md)
+records the actual outputs and outstanding quality issues.
+
 ```text
 RUN_DIR/
 ├── parsed/<paper>.json
@@ -87,6 +94,7 @@ RUN_DIR/
 │   └── export_validation.json
 ├── figures/*.png
 ├── latest_result.json
+├── pipeline_verification.json  # final notebook coverage/schema checks; separate from reports.zip
 └── reports.zip
 ```
 
