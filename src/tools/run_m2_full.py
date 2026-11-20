@@ -133,7 +133,8 @@ def run_full(corpus_dirs, run_dir, *, workers=2, timeout=120, bib_scope="cited",
             except (json.JSONDecodeError, KeyError, TypeError):
                 force = True
         jobs.append((paper["path"], str(parsed), timeout, force, bib_scope))
-    workers = min(workers, os.cpu_count() or 1)
+    # Honor the explicit worker setting: Drive/FUSE input is often I/O bound,
+    # so callers may benefit from more workers than logical CPU cores.
     if expected_publications and inputs["publications"] != expected_publications:
         announce(f"NOTICE: input has {inputs['publications']} publications; group target is "
                  f"{expected_publications}. Missing ranges are not fabricated.")

@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from helpers import DOC, make_paper
@@ -146,6 +147,16 @@ class FullColabNotebook(unittest.TestCase):
             for name in ("elements", "hierarchy", "bibtex"):
                 dataset = ds.dataset(Path(result["export"]["directory"]) / "tables" / name, format="parquet")
                 self.assertEqual(dataset.count_rows(), 0)
+
+    def test_explicit_io_workers_are_not_capped_by_cpu_count(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            make_paper(root / "corpus", "2606-00734", "2606.00734", {1: "no_tex"})
+            with patch("src.tools.run_m2_full.os.cpu_count", return_value=1):
+                result = run_full([str(root / "corpus")], root / "run", workers=2)
+            self.assertEqual(result["metrics"]["workers"], 2)
+            self.assertEqual(result["metrics"]["cpu_count"], 1)
+            self.assertEqual(result["summary"]["publications"], 1)
 
     def test_duplicate_inputs_and_nested_output_are_rejected(self):
         with tempfile.TemporaryDirectory() as temp:

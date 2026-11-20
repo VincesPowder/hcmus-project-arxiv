@@ -53,6 +53,8 @@ No tests, crawling or full-corpus parsing were executed for this update.
 Metadata inventory uses at most eight concurrent readers to reduce small-file
 latency on Drive. The notebook streams child-process logs into cell output, so
 parse progress and failures remain visible while the full run is in progress.
+`WORKERS` is honored even above the CPU count, allowing overlap of Drive reads.
+Start with 2; increase within the runtime's RAM limit when input is I/O bound.
 
 [Open the notebook from m3-data-split](https://colab.research.google.com/github/VincesPowder/hcmus-project-arxiv/blob/m3-data-split/src/milestone2.ipynb).
 
