@@ -35,7 +35,7 @@ def main():
     validation = validate(store, chosen, manual, 'manual')
     report = dict(manual=validation, threshold=args.threshold, margin=args.margin,
                   sha256={'selection': digest(args.selection), 'manual': digest(args.manual)},
-                  metrics=None, notes=['Fixed matcher; do not tune on test.', 'Blank auto labels are abstentions, not verified negatives.'])
+                  metrics=None, notes=['Fixed matcher; do not tune on test.', 'Only positive matching pairs are labels; unlabelled entries are excluded.', 'Precision and coverage are conditional on manually labelled positive entries, not all entries.', 'Matcher diagnostics on manual papers are not automatic training labels.'])
     if args.meta:
         meta = json.loads(Path(args.meta).read_text(encoding='utf-8'))
         actual = digest(args.candidates)

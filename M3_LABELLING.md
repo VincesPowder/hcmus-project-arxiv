@@ -1,4 +1,6 @@
-# Labelling Tools
+# Labelling Module
+
+Áp dụng phản hồi TA tại [QnA M3](https://docs.google.com/spreadsheets/d/1D9JuNExdR3Mh0_8G1thL2p-7fMevDy7uOMPlnh_p51Q/edit#gid=1061532440)
 
 Không chạy lại `split.py`. Dùng `selection.csv` đã chốt; công cụ không sửa selection,
 meta hay dữ liệu nguồn. Các đường dẫn dưới đây là ví dụ, thay bằng dữ liệu thực tế.
@@ -72,18 +74,20 @@ So khớp họ bằng token cuối có thể sai với tên nhiều thành phầ
 khác nhau. Năm xuất bản và năm nộp arXiv cũng có thể lệch hơn một năm. Các trường
 hợp này cần rà soát thủ công; điểm cao chưa bảo đảm nhãn đúng.
 
-### File kết quả và cách hiểu nhãn rỗng
+### File kết quả và các entry chưa khớp
 
 | File | Nội dung |
 |---|---|
-| `labels_manual.csv` | Nhãn do người dùng chọn; các entry còn lại được ghi rỗng khi người dùng xác nhận `FINALIZE`. |
-| `labels_auto.csv` | Một dòng cho mỗi entry của bài auto được xử lý; nhãn rỗng khi matcher chưa đủ điều kiện nhận kết quả. |
+| `labels_manual.csv` | Chỉ các cặp khớp do người dùng xác nhận; entry chưa gán không xuất hiện. |
+| `labels_auto.csv` | Chỉ các cặp được matcher nhận; mọi groundtruth đều có giá trị. |
 | `labels_auto.csv.audit.csv` | Bốn cột nhãn, thêm `score` và `reason` của ứng viên đứng đầu để rà soát. |
+| `labels_auto.csv.papers.csv` | Số entry, cặp khớp, abstention và trạng thái từng bài được xử lý. |
 | `index.sqlite` | Cache cục bộ có thể tái tạo từ nguồn M1/M2, không phải sản phẩm nộp. |
 
 Trong audit, `id` và `metadata` là nhãn được nhận; các lý do như
 `abstain_review`, `abstain_id_conflict`, `abstain_missing_title` biểu thị chưa
-nhận nhãn. Không coi nhãn auto rỗng là bằng chứng entry không có reference đúng.
+nhận nhãn. Groundtruth rỗng chỉ xuất hiện trong audit để ghi nhận abstention,
+không đưa vào labels hoặc coi là bằng chứng không có reference đúng.
 Công cụ báo lỗi nếu bài cần xử lý thiếu bibtex hoặc references trong nguồn đầu vào.
 
 ## Gán thủ công
@@ -95,8 +99,9 @@ Nhập số (hoặc nhiều số cách nhau bởi dấu phẩy) hay `key:CITATIO
 Một reference có thể khớp nhiều entry. Đổi một entry sang reference khác cần nhập
 `REASSIGN` sau cảnh báo. Mỗi lần chọn lưu CSV nguyên tử; chạy lại cùng lệnh để
 xem và sửa nhãn đã lưu. Công cụ duyệt lại các reference để tránh bỏ sót; không tự
-coi một bài đã hoàn tất. `FINALIZE` xác nhận những entry chưa gán không có reference.
-Không FINALIZE nếu chưa duyệt đủ. Nhãn rỗng không được tính là cặp khớp.
+coi một bài đã hoàn tất. Không còn thao tác `FINALIZE`: sau khi duyệt reference,
+công cụ lưu các cặp đã chọn; các entry còn lại giữ trạng thái chưa gán.
+Không cần duyệt hoặc tạo nhãn cho mọi entry để bài có đủ số cặp hợp lệ.
 Sau mỗi bài kiểm tra >=20 cặp, tổng mỗi owner >=100. Nếu thiếu, thực hiện quy trình
 thay dự phòng cùng owner/tier trong hướng dẫn nhóm, dùng output mới sau khi thay
 selection (output cũ có bài ngoài selection sẽ bị từ chối).
@@ -111,7 +116,7 @@ nhãn nộp thay cho danh sách auto đã chốt.
 Ưu tiên một arXiv ID duy nhất trùng reference cùng bài (bỏ hậu tố phiên bản).
 ID mâu thuẫn/đa ID bị từ chối. Fallback dùng title + surname tác giả + năm ±1,
 ngưỡng mặc định .94 và khoảng cách với ứng viên thứ hai >=.04. Thiếu tín hiệu
-hoặc mơ hồ sẽ để groundtruth rỗng: đây là abstention, chưa chứng minh không có match.
+hoặc mơ hồ sẽ không xuất nhãn; audit ghi groundtruth rỗng với lý do abstention.
 `--threshold` và `--margin` chỉ hiệu chỉnh trên train/valid, không dùng test.
 CSV audit lưu score/reason để phân biệt abstention. Output chính đúng 4 cột đề xuất:
 `arxiv_id,citation_key,groundtruth_arxiv_id,label_source`.
@@ -121,7 +126,11 @@ Input được index một lần trên đĩa; chỉ giữ entry/reference của 
 output ghi streaming. Chi phí matcher O(sum(m*n)), không tạo ma trận toàn corpus;
 chuẩn hóa reference trước vòng lặp entry. Không tải mô hình hoặc gọi mạng.
 Chạy lại auto tái sử dụng index nhưng tính lại nhãn; chỉ thay CSV chính sau khi
-hoàn tất. Không có resume theo bài cho auto; manual lưu sau từng lựa chọn.
+hoàn tất tính toán. Nếu bài nào không tìm được cặp, vẫn lưu kết quả và audit để
+rá soát nhưng thoát mã khác 0, báo chưa hoàn tất. Không thay bài hoặc nới ngưỡng
+ngầm. Chỉ tính bài đã có ít nhất một cặp hợp lệ là bài auto có nhãn; đây là điều
+kiện tối thiểu để đếm bài, không phải ngưỡng chất lượng do TA quy định.
+Không có resume theo bài cho auto; manual lưu sau từng lựa chọn.
 
 Đã có test ID/version, ID conflict, abstention/tie, metadata và index 20.000 bài giả.
 Đây không phải benchmark 20.000 bài thật. Cần đo tốc độ, RAM và precision trên nhãn
@@ -145,9 +154,10 @@ python src/check_labels.py --selection src/tools/m3_selection/selection.csv --ow
 
 Thêm `--auto work_m3/labels_auto.csv` để kiểm tra 500 bài auto và gộp thành
 `work_m3/labels.csv`. Bỏ `--owner` nếu cung cấp nhãn của toàn nhóm. Công cụ kiểm
-tra số bài theo owner, đủ nhãn cho mọi entry, key trùng/không tồn tại, source sai,
-reference ngoài cùng bài, bài ngoài selection và ngưỡng cặp thủ công. Nhãn auto
-rỗng vẫn là abstention; số lượng bài auto không chứng minh đủ chất lượng nhãn.
+tra số bài theo owner, key trùng/không tồn tại, source sai, reference ngoài cùng
+bài, bài ngoài selection và ngưỡng cặp thủ công. Không yêu cầu nhãn mọi entry.
+Mỗi bài auto trong selection phải có cặp khớp; báo cáo tách số bài được chọn với
+số bài thực sự có nhãn. Labels manual/auto có groundtruth rỗng đều bị từ chối.
 
 Chỉ xuất file gộp khi manual và auto đều hợp lệ. Nếu không hợp lệ, thoát mã 1,
 đọc danh sách lỗi trong report; file gộp cũ (nếu có) không được cập nhật. Không dùng
@@ -161,19 +171,23 @@ Các file báo cáo theo tiền tố `--output`:
 | `.metrics.csv` | Bảng metrics toàn bộ, từng owner, từng partition và owner–partition. |
 | `.matcher.csv` | Chi tiết truth/predicted/score/reason từng entry manual. |
 
-Metrics chỉ được tính khi nhãn manual qua kiểm tra tính đầy đủ và hợp lệ:
+Metrics chỉ được tính trên các cặp manual hợp lệ, sau khi kiểm tra đủ quota:
 
-- **Precision** = số dự đoán reference đúng / số entry được matcher nhận nhãn.
-- **Recall** = số dự đoán reference đúng / số entry có reference đúng theo người gán.
-- **Coverage** = số entry được matcher nhận nhãn / tổng entry đã duyệt.
-- **Accuracy** = số entry có predicted bằng truth / tổng entry đã duyệt, kể cả
-  trường hợp cả hai rỗng. Chỉ số này có thể cao khi nhiều entry không có match;
-  luôn đọc cùng precision/recall/coverage.
+- **Precision trên tập có nhãn** = số dự đoán đúng / số dự đoán được nhận trên
+  các entry đã có cặp manual.
+- **Recall** = số dự đoán đúng / số cặp manual.
+- **Coverage trên tập có nhãn** = số dự đoán được nhận / số cặp manual.
+- **Accuracy trên tập có nhãn** = số dự đoán đúng / số cặp manual; bằng recall
+  trong thiết kế chỉ có nhãn matching này. Không có true negative.
 
-Mẫu số bằng 0 cho kết quả JSON `null` và ô CSV rỗng. Sai reference trên một entry
-có nhãn dương ảnh hưởng cả precision lẫn recall. Abstention trên nhãn dương làm
-mất recall. Không phải MRR@5 và không thay phần đánh giá mô hình của Tạo.
-Dùng train/valid để hiệu chỉnh, giữ cố định tham số trước khi báo cáo test.
+Entry không có nhãn manual bị loại khỏi phép đo, không suy diễn là nhãn âm.
+Precision/coverage này chỉ có ý nghĩa trên tập cặp đã biết; không chứng minh
+precision toàn bộ output auto ở các entry chưa được người dùng kiểm tra.
+Abstention hoặc chọn sai reference trên một cặp manual đều làm giảm recall.
+Mẫu số bằng 0 cho JSON `null` và ô CSV rỗng. Các file `.matcher.csv` chỉ phục vụ
+chẩn đoán matcher, không nhập vào labels_auto hay dữ liệu train của bài manual.
+Không phải MRR@5 và không thay phần đánh giá mô hình của Tạo. Dùng train/valid
+để hiệu chỉnh; giữ cố định tham số trước khi báo cáo test.
 
 Có thể thêm `--meta src/tools/m3_selection/selection_meta.json --candidates DATA/candidates.csv`
 để kiểm tra SHA-256 candidates với meta mà không chạy split. Hash này xác nhận
@@ -191,3 +205,17 @@ python -m unittest discover -s tests -p 'test_m3*.py' -v
 precision/recall khi dự đoán sai hoặc abstain, từ chối nhãn trùng và reference
 ngoài bài, cùng kiểm tra index 20.000 bài giả. Còn cần nhãn người thật và dữ liệu
 M1/M2 thật trong phạm vi thư mục repo được cho phép để hoàn tất kết quả thực tế.
+
+
+## Chuyển từ output phiên bản cũ
+
+Sao lưu nhãn cũ trong `work_m3/`, rồi tạo bản labels mới bằng cách giữ các dòng
+có `groundtruth_arxiv_id` khác rỗng. Không xóa các cặp đã gán. Dùng bản mới để
+resume hoặc kiểm tra; module báo lỗi rõ ràng nếu gặp dòng nhãn rỗng kiểu cũ.
+Chạy lại auto với tên output mới để có audit và thống kê từng bài đồng bộ.
+Không đưa các file nhãn, cache hay audit lên GitHub.
+
+Khi tạo predictions ở bước sau: dùng các cặp manual đã gán; giữ trạng thái entry
+chưa có nhãn tách khỏi groundtruth. MRR@5 chỉ tính trên cặp có nhãn matching.
+Ứng viên thuộc references cùng bài; nếu ít hơn 5 thì điền null các cand_* thiếu.
+Thực nghiệm che ID/URL/DOI là kết quả phụ, không thay kết quả chính theo đề.

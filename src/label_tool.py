@@ -22,6 +22,8 @@ def main():
             for row in csv.DictReader(f):
                 if row['arxiv_id'] not in allowed or row['label_source'] != 'manual':
                     raise ValueError('Output belongs to a different selection/owner; choose a separate output file')
+                if not row['groundtruth_arxiv_id']:
+                    raise ValueError('Legacy blank manual rows: remove them from a copy before resuming; only matching pairs are labels')
                 key = row['arxiv_id'], row['citation_key']
                 if key in labels:
                     raise ValueError(f'Duplicate label: {key}')
@@ -62,7 +64,7 @@ def main():
                             continue
                         labels.pop((pid, key), None)
                         save()
-                        print('Label removed; review it again before FINALIZE.')
+                        print('Label removed; this entry is now unlabelled.')
                         continue
                     if command == 'all':
                         for entry in entries:
@@ -88,10 +90,7 @@ def main():
                         labels[pid,key] = dict(arxiv_id=pid, citation_key=key, groundtruth_arxiv_id=ref['ref_arxiv_id'], label_source='manual')
                     save()
                     break
-            if input('Confirm all remaining entries have no corresponding reference? Type FINALIZE: ') == 'FINALIZE':
-                for key in by_key:
-                    labels.setdefault((pid,key), dict(arxiv_id=pid, citation_key=key, groundtruth_arxiv_id='', label_source='manual'))
-                save()
+            save()  # Unselected entries remain unknown, not negative labels.
             count = sum(bool(v['groundtruth_arxiv_id']) for (p,k), v in labels.items() if p == pid)
             print(f'{pid}: {count} pairs. ' + ('OK' if count >= 20 else 'BELOW 20: review or replace with same-owner/same-tier reserve using split.py --replace.'))
     except (KeyboardInterrupt, EOFError):

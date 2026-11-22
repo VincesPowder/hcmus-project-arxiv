@@ -1,4 +1,4 @@
-"""Validate annotation completeness and measure matcher against human decisions."""
+"""Validate positive matching pairs and evaluate on human-labelled pairs."""
 import csv
 from .labelling import FIELDS, prepare, match
 
@@ -37,20 +37,25 @@ def validate(store, chosen, labels, source):
         actual = by_paper.get(pid, set())
         if not keys or not refs:
             errors.append(f'{pid}: missing source data')
-        if keys != actual:
-            errors.append(f'{pid}: {len(keys-actual)} missing / {len(actual-keys)} unknown entry labels')
+        if actual - keys:
+            errors.append(f'{pid}: {len(actual-keys)} unknown entry labels')
         count = 0
         for key in actual:
             target = labels[pid, key]['groundtruth_arxiv_id']
-            if target and target not in refs:
+            if not target:
+                errors.append(f'{pid}/{key}: empty groundtruth is not a matching label; remove legacy blank rows')
+            elif target not in refs:
                 errors.append(f'{pid}/{key}: reference outside this paper')
             elif target and key in keys:
                 count += 1
         if source == 'manual' and count < 20:
             errors.append(f'{pid}: manual pairs {count} < 20')
-        papers.append(dict(arxiv_id=pid, owner=paper['owner'], partition=paper['partition'], entries=len(keys), matched=count))
-        stats = owners.setdefault(paper['owner'], dict(papers=0, matched=0))
+        if source == 'auto' and count == 0:
+            errors.append(f'{pid}: no accepted automatic matching pairs')
+        papers.append(dict(arxiv_id=pid, owner=paper['owner'], partition=paper['partition'], entries=len(keys), matched=count, unlabelled=len(keys-actual)))
+        stats = owners.setdefault(paper['owner'], dict(papers=0, labelled_papers=0, matched=0))
         stats['papers'] += 1
+        stats['labelled_papers'] += count > 0
         stats['matched'] += count
     for owner, stats in owners.items():
         required = 5 if source == 'manual' else 500
@@ -64,10 +69,11 @@ def validate(store, chosen, labels, source):
 
 
 def evaluate(store, chosen, human, threshold=.94, margin=.04):
-    """Evaluate reviewed rows only; blanks are explicit human no-match decisions.
+    """Compare fixed matcher to positive human pairs only.
 
-    Use only complete, validated human files for a final report. Abstention on a
-    positive is a false negative, never a correct negative.
+    Precision/coverage are conditional on this labelled subset. Missing entry
+    labels are unknown, never negatives. This diagnostic does not generate auto
+    labels for manual papers and must not be merged into training labels.
     """
     groups, details = {}, []
     for paper in chosen:
@@ -78,6 +84,8 @@ def evaluate(store, chosen, human, threshold=.94, margin=.04):
             if key not in human:
                 continue
             truth = human[key]['groundtruth_arxiv_id']
+            if not truth:
+                raise ValueError('Manual evaluation requires positive matching pairs; remove blank rows')
             predicted, value, reason = match(entry, references, threshold, margin)
             correct = bool(predicted and predicted == truth)
             for group in ('all', 'owner:' + paper['owner'], 'partition:' + paper['partition'], 'owner:' + paper['owner'] + '/partition:' + paper['partition']):
