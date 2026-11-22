@@ -1,0 +1,5 @@
+# Parser, verified Parquet export and notebook figures; no crawling packages.
+pandas>=2.0
+pyarrow>=14.0
+psutil>=5.9
+matplotlib>=3.7

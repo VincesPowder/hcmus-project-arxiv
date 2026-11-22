@@ -184,7 +184,7 @@ def _protect_fragments(text: str) -> tuple[str, dict[str, str]]:
     patterns = [
         re.compile(r"https?://[^\s{}]+|www\.[^\s{}]+", re.IGNORECASE),
         re.compile(r"\\(?:url|href)\s*\{[^{}]*\}(?:\s*\{[^{}]*\})?", re.DOTALL),
-        re.compile(r"(?<!\\)\$(?!\$)(?:\\.|[^$])*?(?<!\\)\$", re.DOTALL),
+        re.compile(r"(?<!\\)\$(?!\$)(?:\\.|[^$\\])*?(?<!\\)\$", re.DOTALL),
         re.compile(r"\\\((?:\\.|[^\\])*?\\\)", re.DOTALL),
         re.compile(r"\\(?:cite\w*|ref|eqref|autoref)\s*\{[^{}]*\}", re.DOTALL),
     ]

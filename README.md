@@ -48,6 +48,89 @@ No tests, crawling or full-corpus parsing were executed for this update.
 
 ---
 
+## Run the full Milestone 2 notebook on Colab
+
+Metadata inventory uses at most eight concurrent readers to reduce small-file
+latency on Drive. The notebook streams child-process logs into cell output, so
+parse progress and failures remain visible while the full run is in progress.
+`WORKERS` is honored even above the CPU count, allowing overlap of Drive reads.
+Start with 2; increase within the runtime's RAM limit when input is I/O bound.
+
+[Open the notebook from m3-data-split](https://colab.research.google.com/github/VincesPowder/hcmus-project-arxiv/blob/m3-data-split/src/milestone2.ipynb).
+
+Choose **CPU**, edit `CORPUS_DIRS` and `RUN_DIR` in the configuration cell, then **Run all**.
+`LIMIT=0` processes the complete supplied input. Several corpus directories are supported;
+each must directly contain publication folders in either the standard M1 layout or
+`paper_metadata.json + sources/vN/manifest.json` layout.
+
+The notebook clones this branch, installs only M2 dependencies, mounts Drive if enabled,
+parses every declared version, applies version-specific reference aliases, audits results,
+exports fresh Parquet shards and displays actual coverage/quality/performance.
+It never crawls or downloads the corpus.
+
+The final notebook cell writes `pipeline_verification.json` and checks selected-input
+coverage, schema and the previously failing publications present in that input. It raises
+if those checks fail, after preserving exported files. Passing these checks does not clear
+reference/source quality flags or turn a `partial` result into full M2 completion.
+The [verified 5,000-paper Colab run](reports/m2_colab_full_2606_20261120.md)
+records the actual outputs and outstanding quality issues.
+
+```text
+RUN_DIR/
+├── parsed/<paper>.json
+├── paper_failures.json
+├── input_inventory.json
+├── run_identity.json
+├── source_fingerprint.json
+├── work/parse_metrics.json
+├── work/parse.log
+├── work/parse_errors.jsonl
+├── audit/{summary.json,coverage.csv,publications.csv,...}
+├── exports/<export-id>/
+│   ├── tables/elements/*.parquet
+│   ├── tables/hierarchy/*.parquet
+│   ├── tables/bibtex/*.parquet
+│   ├── logs/{parse_papers.csv,parse_versions.csv}
+│   └── export_validation.json
+├── figures/*.png
+├── latest_result.json
+├── pipeline_verification.json  # final notebook coverage/schema checks; separate from reports.zip
+└── reports.zip
+```
+
+The three datasets exist with their typed schemas even if a table has zero rows.
+If every publication fails, no data rows are fabricated; the notebook shows the errors
+and skips preview of a nonexistent export. Individual paper failures do not prevent
+exporting good papers. A `partial` result is not full group completion.
+
+Repeated citation keys with conflicting metadata no longer discard a publication.
+The parser preserves the tree and all reference candidates, assigns distinct canonical
+keys, and leaves the ambiguous citation unresolved. Inspect `reference_conflicts` in
+`parsed/<paper>.json`, `audit/reference_conflicts.jsonl` and
+`audit/unresolved_citations.csv`. Candidate provenance is also retained in each JSON
+reference's `ambiguous_source_keys`. Parquet retains the separate candidate rows;
+the JSON/audit files explain their ambiguity. Such runs remain `partial` until reviewed.
+An unchanged source conflict is not reparsed on resume; source edits require a fresh run.
+
+Drive output supports resume. Source/input/configuration changes require a fresh `RUN_DIR`;
+changing only worker count is allowed. Successful JSON is reused, and incomplete versions
+can be retried. Every export uses a new directory to avoid stale shards.
+Do not use one `RUN_DIR` concurrently from multiple runtimes. `reports.zip` contains small
+reports; full parsed JSON/Parquet remain in `RUN_DIR` and are not in that ZIP.
+
+Equivalent local/Colab CLI:
+
+```bash
+pip install -r src/requirements-m2.txt
+python src/tools/run_m2_full.py --corpus-dirs /path/to/corpus1 /path/to/corpus2 --run-dir /path/to/new-output --workers 2 --timeout 120
+```
+
+Full-notebook regression tests execute every Python code cell on isolated fixtures
+(Drive/clone/package installation disabled), including an intentional reference conflict,
+raw-layout input, empty-source versions, figures, ZIP, resume and typed Parquet validation.
+
+---
+
 ## Table of contents
 
 1. [Repository layout](#1-repository-layout)

@@ -1,0 +1,45 @@
+{
+  "seed": "m3-2026",
+  "n_auto_per_owner": 500,
+  "candidates_file": "candidates.csv",
+  "candidates_sha256": "182ace6b68d05ccdef6b340de6c8c820bd59b12636634c2d51c44257dc9d6517",
+  "slots": [
+    [
+      "test",
+      "vua"
+    ],
+    [
+      "valid",
+      "cao"
+    ],
+    [
+      "train1",
+      "cao"
+    ],
+    [
+      "train2",
+      "vua"
+    ],
+    [
+      "train3",
+      "thap"
+    ]
+  ],
+  "reserve_tiers": [
+    "cao",
+    "vua",
+    "thap"
+  ],
+  "auto_eval_min_hits": 20,
+  "pandas": "2.3.3",
+  "python": "3.13.9",
+  "warnings": [
+    "24127192: ô train3 cần tầng 'thap' nhưng hết bài, dùng tầng 'vua'",
+    "24127192: ô reserve_thap cần tầng 'thap' nhưng hết bài, dùng tầng 'vua'",
+    "24127262: ô train3 cần tầng 'thap' nhưng hết bài, dùng tầng 'vua'",
+    "24127262: ô reserve_thap cần tầng 'thap' nhưng hết bài, dùng tầng 'vua'",
+    "24127465: ô reserve_thap cần tầng 'thap' nhưng hết bài, dùng tầng 'vua'",
+    "24127534: ô train3 cần tầng 'thap' nhưng hết bài, dùng tầng 'vua'",
+    "24127534: ô reserve_thap cần tầng 'thap' nhưng hết bài, dùng tầng 'vua'"
+  ]
+}
