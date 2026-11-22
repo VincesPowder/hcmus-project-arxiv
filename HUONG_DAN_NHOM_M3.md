@@ -12,7 +12,7 @@ Những chỗ ghi **(đề xuất)** là gợi ý của người soạn, nhóm c
 | M1 (crawl) | Xong, dữ liệu thô nằm trên Drive dùng chung `arXiv-metadata-hcmus/` |
 | M2 (parse) | Xong cho cả 20.000 bài (chạy chung một lượt), 0 publication thất bại |
 | Chọn bài M3 (`split.py`) | Xong, đã chốt phiên bản **v3** |
-| Công cụ gán nhãn, matcher tự động | Chưa biết trạng thái, cần Khôi xác nhận |
+| Công cụ gán nhãn, matcher tự động | Đã triển khai `label_tool.py`, `label_auto.py`; đã kiểm thử dữ liệu giả, chưa chạy dữ liệu Drive thật |
 | Gán nhãn thủ công | Chưa bắt đầu |
 | Đặc trưng, mô hình, `predictions` | Chưa bắt đầu |
 | Dataset Hugging Face, poster | Chưa bắt đầu |
@@ -318,3 +318,20 @@ Chỉ code (`src/`), `requirements.txt`, `README.md`. Không có dữ liệu. `s
 - [ ] 6 bảng của mỗi range qua `validate_dataset.py`
 - [ ] Mỗi người upload dataset và dán link công khai
 - [ ] Poster A2 dọc
+
+
+## 10. Cập nhật bàn giao phần Khôi (22/11/2026)
+
+- Đã có công cụ CLI gán thủ công và tự động; cách chạy tại `M3_LABELLING.md`.
+- Đã có `src/check_labels.py`: kiểm tra nhãn theo selection và dữ liệu nguồn,
+  xuất bảng precision/recall/coverage/accuracy của matcher theo owner/partition,
+  gộp nhãn hợp lệ thành `labels.csv`. Đây là đánh giá matcher của Khôi, không thay
+  thế `evaluate.py` MRR@5 của Tạo.
+- Công cụ thủ công ưu tiên bài rủi ro, hỗ trợ xóa nhãn sai bằng `clear:KEY`, cảnh
+  báo gán lại và lưu sau mỗi lựa chọn.
+- Chưa hoàn tất gán tay 5 bài của Khôi, sinh nhãn tự động 500 bài/người và đo độ
+  chính xác trên nhãn thật: repo hiện chưa có dữ liệu M1/M2 hoặc nhãn thủ công.
+  Không dùng kết quả kiểm thử giả thay cho các sản phẩm này.
+- Chưa xác nhận/chia sẻ Drive, chưa upload Hugging Face; các bước cần dữ liệu,
+  tài khoản và kết quả mô hình vẫn giữ trạng thái chưa hoàn tất.
+- Không chạy lại `split.py`, không thay bài hoặc sửa selection trong lần cập nhật này.
