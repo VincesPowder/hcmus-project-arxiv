@@ -148,6 +148,13 @@ def cmd_make(a):
             print(f"{paper}: {len(entries)} entries, {len(paper_refs)} references -> cannot be labelled, use a reserve (split.py --replace)")
             continue
         sheet = make_sheet(paper, entries, paper_refs)
+
+        # Force Google Sheets to display IDs as text instead of locale-formatted numbers.
+        # Sheets evaluates ="2602.12886" and displays the exact arXiv ID.
+        for column in ("arxiv_id", "best_guess"):
+            sheet[column] = sheet[column].map(
+                lambda value: f'=\"{format_arxiv_id(value)}\"' if str(value).strip() else ""
+            )
         strong = int((sheet["suggestions"].str.extract(r"1\) .*\| ([0-9.]+)$", flags=re.M)[0].astype(float) >= 0.6).sum())
         sheet.to_csv(out / f"{paper}.csv", index=False, encoding="utf-8-sig")
         paper_refs[["ref_arxiv_id", "ref_title", "ref_authors", "ref_submission_date"]].assign(
