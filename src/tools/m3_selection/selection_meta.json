@@ -6,11 +6,11 @@
   "slots": [
     [
       "test",
-      "vua"
+      "thap"
     ],
     [
       "valid",
-      "cao"
+      "vua"
     ],
     [
       "train1",
@@ -26,20 +26,42 @@
     ]
   ],
   "reserve_tiers": [
-    "cao",
+    "thap",
+    "thap",
     "vua",
-    "thap"
+    "cao"
   ],
+  "hard_ratio": 0.7,
+  "easy_ratio": 0.85,
+  "hard_min_refs": 30,
+  "hard_min_bib": 30,
+  "hard_min_hits": 10,
+  "manual_max_bib": 150,
+  "manual_max_refs": 250,
   "auto_eval_min_hits": 20,
-  "pandas": "2.3.3",
-  "python": "3.13.9",
-  "warnings": [
-    "24127192: ô train3 cần tầng 'thap' nhưng hết bài, dùng tầng 'vua'",
-    "24127192: ô reserve_thap cần tầng 'thap' nhưng hết bài, dùng tầng 'vua'",
-    "24127262: ô train3 cần tầng 'thap' nhưng hết bài, dùng tầng 'vua'",
-    "24127262: ô reserve_thap cần tầng 'thap' nhưng hết bài, dùng tầng 'vua'",
-    "24127465: ô reserve_thap cần tầng 'thap' nhưng hết bài, dùng tầng 'vua'",
-    "24127534: ô train3 cần tầng 'thap' nhưng hết bài, dùng tầng 'vua'",
-    "24127534: ô reserve_thap cần tầng 'thap' nhưng hết bài, dùng tầng 'vua'"
-  ]
+  "manual_pool_sizes": {
+    "24127192": {
+      "cao": 1353,
+      "vua": 42,
+      "thap": 13
+    },
+    "24127262": {
+      "cao": 1372,
+      "vua": 45,
+      "thap": 18
+    },
+    "24127465": {
+      "cao": 1271,
+      "vua": 51,
+      "thap": 14
+    },
+    "24127534": {
+      "cao": 1062,
+      "vua": 69,
+      "thap": 17
+    }
+  },
+  "pandas": "3.1.1",
+  "python": "3.13.5",
+  "warnings": []
 }
