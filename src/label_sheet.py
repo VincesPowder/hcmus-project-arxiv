@@ -66,10 +66,31 @@ def as_list(value):
     return [str(v) for v in list(value)]
 
 
+# ----------------------------------------------------------------------------- arXiv id formatting
+def format_arxiv_id(value):
+    """Return arXiv IDs in canonical form, inserting the dot in undotted numeric IDs."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ""
+    value = str(value).strip()
+    if not value:
+        return ""
+
+    # Keep already valid modern and legacy IDs in their canonical form.
+    canonical = canonical_arxiv_id(value)
+    if canonical:
+        return canonical
+
+    # Some source tables store modern IDs without the dot: YYMMNNNN or YYMMNNNNN.
+    if re.fullmatch(r"\d{8,9}", value):
+        return f"{value[:4]}.{value[4:]}"
+
+    return value
+
+
 # ----------------------------------------------------------------------------- suggestions
 class _Ref:
     def __init__(self, row):
-        self.id = canonical_arxiv_id(str(row["ref_arxiv_id"])) or str(row["ref_arxiv_id"])
+        self.id = format_arxiv_id(row["ref_arxiv_id"])
         self.title = str(row.get("ref_title") or "")
         self.authors = as_list(row.get("ref_authors"))
         self.tset = set(title_tokens(self.title))
@@ -130,6 +151,7 @@ def cmd_make(a):
         strong = int((sheet["suggestions"].str.extract(r"1\) .*\| ([0-9.]+)$", flags=re.M)[0].astype(float) >= 0.6).sum())
         sheet.to_csv(out / f"{paper}.csv", index=False, encoding="utf-8-sig")
         paper_refs[["ref_arxiv_id", "ref_title", "ref_authors", "ref_submission_date"]].assign(
+            ref_arxiv_id=lambda d: d["ref_arxiv_id"].map(format_arxiv_id),
             ref_authors=lambda d: d["ref_authors"].map(lambda v: ", ".join(as_list(v)))).to_csv(
             out / f"{paper}_references.csv", index=False, encoding="utf-8-sig")
         print(f"{paper}: {len(sheet)} entries, {paper_refs['ref_arxiv_id'].nunique()} references, "
@@ -139,8 +161,11 @@ def cmd_make(a):
 
 # ----------------------------------------------------------------------------- collect
 def fix_id(value, valid):
-    """Repair what a spreadsheet does to ids ('1810.0481' lost its trailing zero); None if not a valid id."""
+    """Normalize arXiv IDs and repair spreadsheet formatting; None if not a valid id."""
     value = str(value).strip()
+    normalized = format_arxiv_id(value)
+    if normalized in valid:
+        return normalized
     if value in valid:
         return value
     m = re.fullmatch(r"(\d{4})\.(\d{1,4})", value)
@@ -160,7 +185,7 @@ def cmd_collect(a):
     sheets = pd.concat([pd.read_csv(f, dtype=str, keep_default_na=False) for f in files], ignore_index=True)
     sheets["arxiv_id"] = [fix_id(v, set(papers)) or v for v in sheets["arxiv_id"]]
     refs = read_rows(a.references, set(sheets["arxiv_id"]))
-    valid = {p: set(g["ref_arxiv_id"].map(lambda v: canonical_arxiv_id(v) or v)) for p, g in refs.groupby("arxiv_id")}
+    valid = {p: set(g["ref_arxiv_id"].map(format_arxiv_id)) for p, g in refs.groupby("arxiv_id")}
 
     errors, warnings, rows = [], [], []
     if sheets.duplicated(["arxiv_id", "citation_key"]).any():
