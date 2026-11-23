@@ -1,15 +1,20 @@
-"""Milestone 3 - manual labelling with a spreadsheet: `make` the sheets, fill them, `collect` labels.csv.
+"""Milestone 3 - 100% manual labelling with a spreadsheet: `make` the sheets, fill them BY HAND, `collect` labels.csv.
 
-STEP 1  make     one CSV per manual publication: every bibtex entry of the paper, its 5 best candidate
-                 references (suggestions only, NOT labels) and an empty column `ref_arxiv_id` to fill.
+STEP 1  make     one CSV per manual publication with every bibtex entry of the paper and three EMPTY columns to
+                 fill by hand: `ref_arxiv_id`, `match_detail`, `note`. A second file <paper>_references.csv lists the
+                 references of the paper (the ones you search in). Nothing computed is ever written to the CSV.
     python src/label_sheet.py make --mssv 24127465 \\
         --bibtex <m2 export>/tables/bibtex --references <m1>/work/tables/references.parquet \\
         --selection m3_selection/selection.csv --out-dir labeling/24127465 \\
         --papers 2602.11395 2602.12886 2602.11055 2602.10677 2602.11244
 
-STEP 2  fill     open each CSV in Google Sheets (import with "Convert text to numbers" UNCHECKED), write in
-                 column `ref_arxiv_id`:  the arXiv id of the true reference | none (no reference matches) | blank (not done yet)
-                 then File > Download > CSV and keep the files in one folder.
+    The terminal prints ONE line per entry, `Best suggestion: <arXiv id>`. It is only a hint to save time, it is
+    NOT written to the CSV, it never fills `ref_arxiv_id` and it is NOT ground truth. `--no-suggestions` hides it.
+
+STEP 2  fill     open each CSV in Google Sheets and compare entry_title / entry_authors / entry_year / entry_venue
+                 with <paper>_references.csv. In column `ref_arxiv_id` write the arXiv id of the ONE matching
+                 reference, or `none` when no reference matches; leave it blank while not done. Explain the decision in
+                 `match_detail`. Then File > Download > CSV and keep the files in one folder (see MANUAL_LABELING.md).
 
 STEP 3  collect  validate the filled sheets and write labels.csv (format of docs/m3_labels.md).
     python src/label_sheet.py collect --mssv 24127465 --sheets-dir labeling/24127465_filled \\
@@ -32,9 +37,10 @@ from text_clean import (arxiv_id_year, author_surnames, canonical_arxiv_id, extr
                         title_tokens)
 
 SHEET_COLUMNS = ["arxiv_id", "citation_key", "entry_title", "entry_authors", "entry_year", "entry_venue",
-                 "suggestions", "best_guess", "ref_arxiv_id", "note"]
+                 "ref_arxiv_id", "match_detail", "note"]
 NONE_WORDS = {"none", "no", "n", "-", "0", "null"}
 MIN_MATCHED_PER_PAPER, MIN_MATCHED_PER_PERSON = 20, 100
+STRONG_SCORE = 0.6          # only used for the rough "strong suggestion" count printed in the terminal
 
 
 # ----------------------------------------------------------------------------- io
@@ -67,11 +73,23 @@ def as_list(value):
 
 
 # ----------------------------------------------------------------------------- arXiv id formatting
+def _clean_cell(value) -> str:
+    """Undo spreadsheet decoration: ="2511.19116", a leading apostrophe, surrounding quotes and spaces."""
+    text = str(value).strip()
+    if text.startswith("="):
+        text = text[1:]
+    return text.strip().strip("\"'").strip()
+
+
 def format_arxiv_id(value):
-    """Return arXiv IDs in canonical form, inserting the dot in undotted numeric IDs."""
+    """Return arXiv IDs in canonical form, repairing what a spreadsheet may have done to them.
+
+    2511.19116 stays 2511.19116; 251119116 and 251.119.116 (thousands separators added by a spreadsheet
+    locale) become 2511.19116. canonical_arxiv_id (text_clean) is used as is and always tried first.
+    """
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return ""
-    value = str(value).strip()
+    value = _clean_cell(value)
     if not value:
         return ""
 
@@ -80,14 +98,22 @@ def format_arxiv_id(value):
     if canonical:
         return canonical
 
-    # Some source tables store modern IDs without the dot: YYMMNNNN or YYMMNNNNN.
-    if re.fullmatch(r"\d{8,9}", value):
-        return f"{value[:4]}.{value[4:]}"
+    # Modern IDs without the dot (YYMMNNNN / YYMMNNNNN), possibly with thousands separators: 251.119.116
+    if re.fullmatch(r"\d{8,9}", value) or re.fullmatch(r"\d{1,3}(?:[.,\s]\d{3})+", value):
+        digits = re.sub(r"\D", "", value)
+        if len(digits) in (8, 9):
+            return f"{digits[:4]}.{digits[4:]}"
 
     return value
 
 
-# ----------------------------------------------------------------------------- suggestions
+def sheet_text(value) -> str:
+    """Cell that Google Sheets keeps as TEXT (otherwise 2511.19116 may be read as the number 251.119.116)."""
+    value = format_arxiv_id(value)
+    return f'="{value}"' if value else ""
+
+
+# ----------------------------------------------------------------------------- suggestions (terminal only)
 class _Ref:
     def __init__(self, row):
         self.id = format_arxiv_id(row["ref_arxiv_id"])
@@ -118,21 +144,25 @@ def _short(text, n=90):
 
 
 def make_sheet(arxiv_id, entries, refs):
+    """Return (sheet, hints). `sheet` has only descriptive columns plus empty columns to fill by hand.
+
+    `hints` = [(citation_key, best_reference_id or "", score)] is used for the terminal and for the
+    `best_suggestion` CSV column; it is never used to fill `ref_arxiv_id`.
+    """
     refs_list = [_Ref(r) for r in refs.drop_duplicates("ref_arxiv_id").to_dict("records")]
-    rows = []
+    rows, hints = [], []
     for entry in entries.drop_duplicates("citation_key").to_dict("records"):
-        ranked = sorted(((_score(entry, r), r) for r in refs_list), key=lambda x: -x[0])[:5]
-        lines = [f"{i}) {r.id} | {_short(r.title)} | {', '.join(r.authors[:2])} | {r.year} | {s:.2f}"
-                 for i, (s, r) in enumerate(ranked, 1)]
+        score, best = max(((_score(entry, r), r) for r in refs_list), key=lambda x: x[0], default=(0.0, None))
+        hints.append((entry["citation_key"], best.id if best is not None and score > 0 else "", score))
         authors = as_list(entry.get("authors"))
         rows.append({
             "arxiv_id": arxiv_id, "citation_key": entry["citation_key"], "entry_title": str(entry.get("title") or ""),
             "entry_authors": ", ".join(authors[:3]) + (" et al." if len(authors) > 3 else ""),
             "entry_year": entry.get("year") if entry.get("year") == entry.get("year") else "",
             "entry_venue": _short(entry.get("journal") or entry.get("url") or "", 80),
-            "suggestions": "\n".join(lines), "best_guess": ranked[0][1].id if ranked and ranked[0][0] > 0 else "",
-            "ref_arxiv_id": "", "note": ""})
-    return pd.DataFrame(rows, columns=SHEET_COLUMNS)
+            "best_suggestion": best.id if best is not None and score > 0 else "",
+            "ref_arxiv_id": "", "match_detail": "", "note": ""})
+    return pd.DataFrame(rows, columns=SHEET_COLUMNS), hints
 
 
 def cmd_make(a):
@@ -142,34 +172,37 @@ def cmd_make(a):
     bib, refs = read_rows(a.bibtex, papers), read_rows(a.references, papers)
     out = Path(a.out_dir)
     out.mkdir(parents=True, exist_ok=True)
+    if not a.no_suggestions:
+        print("NOTE: 'Best suggestion' lines below are hints only. They are also written to the `best_suggestion` CSV column, "
+              "but they are NOT ground truth: check every entry by hand against <paper>_references.csv.\n")
     for paper in papers:
         entries, paper_refs = bib[bib["arxiv_id"] == paper], refs[refs["arxiv_id"] == paper]
         if entries.empty or paper_refs.empty:
             print(f"{paper}: {len(entries)} entries, {len(paper_refs)} references -> cannot be labelled, use a reserve (split.py --replace)")
             continue
-        sheet = make_sheet(paper, entries, paper_refs)
+        sheet, hints = make_sheet(paper, entries, paper_refs)
 
         # Force Google Sheets to display IDs as text instead of locale-formatted numbers.
         # Sheets evaluates ="2602.12886" and displays the exact arXiv ID.
-        for column in ("arxiv_id", "best_guess"):
-            sheet[column] = sheet[column].map(
-                lambda value: f'=\"{format_arxiv_id(value)}\"' if str(value).strip() else ""
-            )
-        strong = int((sheet["suggestions"].str.extract(r"1\) .*\| ([0-9.]+)$", flags=re.M)[0].astype(float) >= 0.6).sum())
+        sheet["arxiv_id"] = sheet["arxiv_id"].map(sheet_text)
         sheet.to_csv(out / f"{paper}.csv", index=False, encoding="utf-8-sig")
         paper_refs[["ref_arxiv_id", "ref_title", "ref_authors", "ref_submission_date"]].assign(
-            ref_arxiv_id=lambda d: d["ref_arxiv_id"].map(format_arxiv_id),
+            ref_arxiv_id=lambda d: d["ref_arxiv_id"].map(sheet_text),
             ref_authors=lambda d: d["ref_authors"].map(lambda v: ", ".join(as_list(v)))).to_csv(
             out / f"{paper}_references.csv", index=False, encoding="utf-8-sig")
+        strong = sum(1 for _, _, s in hints if s >= STRONG_SCORE)
         print(f"{paper}: {len(sheet)} entries, {paper_refs['ref_arxiv_id'].nunique()} references, "
               f"~{strong} entries with a strong suggestion (a rough guide to how many matches to expect)")
-    print(f"\nSheets written to {out}. Next: fill the column ref_arxiv_id, then run `collect`.")
+        if not a.no_suggestions:
+            for key, best, _ in hints:
+                print(f"  {key}: Best suggestion: {best or 'none'}")
+    print(f"\nSheets written to {out}. Next: fill ref_arxiv_id / match_detail by hand, then run `collect`.")
 
 
 # ----------------------------------------------------------------------------- collect
 def fix_id(value, valid):
     """Normalize arXiv IDs and repair spreadsheet formatting; None if not a valid id."""
-    value = str(value).strip()
+    value = _clean_cell(value)
     normalized = format_arxiv_id(value)
     if normalized in valid:
         return normalized
@@ -190,6 +223,8 @@ def cmd_collect(a):
     if not files:
         raise SystemExit(f"no sheet in {a.sheets_dir}")
     sheets = pd.concat([pd.read_csv(f, dtype=str, keep_default_na=False) for f in files], ignore_index=True)
+    if "match_detail" not in sheets.columns:                      # sheets made by an older version
+        sheets["match_detail"] = ""
     sheets["arxiv_id"] = [fix_id(v, set(papers)) or v for v in sheets["arxiv_id"]]
     refs = read_rows(a.references, set(sheets["arxiv_id"]))
     valid = {p: set(g["ref_arxiv_id"].map(format_arxiv_id)) for p, g in refs.groupby("arxiv_id")}
@@ -198,7 +233,7 @@ def cmd_collect(a):
     if sheets.duplicated(["arxiv_id", "citation_key"]).any():
         errors.append("duplicated (arxiv_id, citation_key) rows across the sheets")
     for r in sheets.itertuples(index=False):
-        value = str(r.ref_arxiv_id).strip()
+        value = _clean_cell(r.ref_arxiv_id)
         if not value:
             continue                                               # not labelled yet
         if value.lower() in NONE_WORDS:
@@ -210,6 +245,12 @@ def cmd_collect(a):
         else:
             rows.append((r.arxiv_id, r.citation_key, ref))
     labels = pd.DataFrame(rows, columns=["arxiv_id", "citation_key", "ref_arxiv_id"])
+
+    filled = sheets[sheets["ref_arxiv_id"].map(_clean_cell) != ""]
+    no_detail = int((filled["match_detail"].str.strip() == "").sum())
+    if no_detail:
+        warnings.append(f"{no_detail} labelled rows have an empty match_detail "
+                        f"(write why it matches, or 'No matching reference found' for none)")
 
     print(f"{'paper':12s} {'entries':>7s} {'done':>5s} {'matched':>8s} {'none':>5s} {'todo':>5s}")
     total_matched = 0
@@ -244,7 +285,7 @@ def cmd_collect(a):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Manual labelling with spreadsheets")
+    ap = argparse.ArgumentParser(description="100% manual labelling with spreadsheets")
     sub = ap.add_subparsers(dest="command", required=True)
     make = sub.add_parser("make")
     collect = sub.add_parser("collect")
@@ -255,6 +296,8 @@ def main():
         p.add_argument("--papers", nargs="*", default=None, help="manual publications (default: the ones of selection.csv)")
     make.add_argument("--bibtex", required=True, help="M2 bibtex table (folder of shards)")
     make.add_argument("--out-dir", required=True)
+    make.add_argument("--no-suggestions", action="store_true",
+                      help="do not print the 'Best suggestion' hint of each entry (label completely blind)")
     collect.add_argument("--sheets-dir", required=True)
     collect.add_argument("--out", required=True)
     collect.add_argument("--annotator", default=None)
