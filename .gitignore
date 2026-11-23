@@ -9,3 +9,8 @@ parsed/
 *.parquet
 book/_build/
 book/_generated/
+
+# M3 local labels, disk index and diagnostics (never commit data)
+work_m3/
+*.sqlite
+*.sqlite-journal

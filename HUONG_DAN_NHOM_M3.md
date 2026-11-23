@@ -12,7 +12,7 @@ Những chỗ ghi **(đề xuất)** là gợi ý của người soạn, nhóm c
 | M1 (crawl) | Xong, dữ liệu thô nằm trên Drive dùng chung `arXiv-metadata-hcmus/` |
 | M2 (parse) | Xong cho cả 20.000 bài (chạy chung một lượt), 0 publication thất bại |
 | Chọn bài M3 (`split.py`) | Xong, đã chốt phiên bản **v3** |
-| Công cụ gán nhãn, matcher tự động | Chưa biết trạng thái, cần Khôi xác nhận |
+| Công cụ gán nhãn, matcher tự động | Đã triển khai `label_tool.py`, `label_auto.py`; đã kiểm thử dữ liệu giả, chưa chạy dữ liệu Drive thật |
 | Gán nhãn thủ công | Chưa bắt đầu |
 | Đặc trưng, mô hình, `predictions` | Chưa bắt đầu |
 | Dataset Hugging Face, poster | Chưa bắt đầu |
@@ -209,7 +209,7 @@ Nếu một người đảm nhận hai vai trò (ví dụ Vinh và Ngọc), ngư
 |---|---|
 | `arxiv_id` | Bài chứa entry |
 | `citation_key` | Key của entry trong bảng `bibtex` |
-| `groundtruth_arxiv_id` | arXiv ID của reference đúng, để trống nếu không có reference tương ứng |
+| `groundtruth_arxiv_id` | arXiv ID reference đã khớp; không rỗng trong labels. Entry chưa khớp không xuất hiện trong labels |
 | `label_source` | `manual` hoặc `auto` |
 
 Các cột `arxiv_id`, `citation_key`, `groundtruth_arxiv_id` trùng với bảng `predictions` của đề, nên có thể nối trực tiếp.
@@ -248,7 +248,7 @@ Lưu ý rủi ro đã biết:
 
 - Mỗi entry bibtex chỉ được so với các reference của **cùng bài** (ma trận `m × n`).
 - Mô hình trả về 5 ứng viên tốt nhất. MRR@5 của một entry là `1/hạng` nếu reference đúng nằm trong top 5, ngược lại bằng 0; entry không có reference đúng thì không tính. MRR@5 là trung bình trên các entry có nhãn của tập test.
-- Báo cáo **tách riêng** MRR@5 của test thủ công và test tự động. Lý do: bài tự động được chọn theo tín hiệu mà matcher regex dùng, nên test tự động dễ hơn và có phần vòng tròn.
+- Báo cáo **tách riêng** MRR@5 của test thủ công và test tự động. Lý do: nhãn tự động có thể thiên lệch theo quy tắc matcher. Theo QnA STT 4, matcher tạo nhãn phải tách khỏi model huấn luyện; không mặc nhiên coi test tự động là circular evaluation.
 - Test thủ công chỉ có 4 bài (khoảng 120 cặp ước lượng), nên MRR@5 có độ nhiễu lớn. Nên ghi rõ trong báo cáo.
 - Độ khó đo bằng `ratio` là độ khó đối với regex, chưa chắc là độ khó đối với mô hình có đặc trưng tiêu đề và tác giả. Kết luận độ khó thật chỉ có sau khi chạy baseline.
 - Đề cho phép dùng mô hình ngoài (LLM, pretrained) trong giới hạn Colab CPU, nhưng chấm tách khỏi các phương pháp ML truyền thống.
@@ -318,3 +318,41 @@ Chỉ code (`src/`), `requirements.txt`, `README.md`. Không có dữ liệu. `s
 - [ ] 6 bảng của mỗi range qua `validate_dataset.py`
 - [ ] Mỗi người upload dataset và dán link công khai
 - [ ] Poster A2 dọc
+
+
+## 10. Cập nhật bàn giao phần Khôi (22/11/2026)
+
+- Đã có công cụ CLI gán thủ công và tự động; cách chạy tại `M3_LABELLING.md`.
+- Đã có `src/check_labels.py`: kiểm tra nhãn theo selection và dữ liệu nguồn,
+  xuất bảng precision/recall/coverage/accuracy của matcher theo owner/partition,
+  gộp nhãn hợp lệ thành `labels.csv`. Đây là đánh giá matcher của Khôi, không thay
+  thế `evaluate.py` MRR@5 của Tạo.
+- Công cụ thủ công ưu tiên bài rủi ro, hỗ trợ xóa nhãn sai bằng `clear:KEY`, cảnh
+  báo gán lại và lưu sau mỗi lựa chọn.
+- Chưa hoàn tất gán tay 5 bài của Khôi, sinh nhãn tự động 500 bài/người và đo độ
+  chính xác trên nhãn thật: repo hiện chưa có dữ liệu M1/M2 hoặc nhãn thủ công.
+  Không dùng kết quả kiểm thử giả thay cho các sản phẩm này.
+- Chưa xác nhận/chia sẻ Drive, chưa upload Hugging Face; các bước cần dữ liệu,
+  tài khoản và kết quả mô hình vẫn giữ trạng thái chưa hoàn tất.
+- Không chạy lại `split.py`, không thay bài hoặc sửa selection trong lần cập nhật này.
+
+
+## 11. Hiệu chỉnh theo QnA TA (22/11/2026)
+
+Nguồn: [trang Milestone 3, STT 4](https://docs.google.com/spreadsheets/d/1D9JuNExdR3Mh0_8G1thL2p-7fMevDy7uOMPlnh_p51Q/edit#gid=1061532440).
+
+- Nhãn là cặp entry–reference tìm được; không bắt buộc gán mọi entry và không
+  tạo nhãn âm cho entry chưa khớp. Module đã bỏ FINALIZE sinh nhãn rỗng.
+- Labels manual/auto chỉ chứa cặp khớp; abstention nằm trong audit riêng.
+- Kiểm tra auto tách số bài xử lý và số bài có cặp; bài không có cặp khiến bàn
+  giao chưa đạt. Không tự sửa selection hoặc chạy lại split để bù bài.
+- Bài manual không được đưa vào pipeline sinh nhãn auto. Chẩn đoán matcher trên
+  cặp manual chỉ để đo, không dùng output đó thay nhãn người hoặc đưa vào train.
+- MRR@5 chỉ tính trên cặp matching; precision/coverage matcher đo trên tập cặp
+  manual đã biết phải ghi rõ phạm vi. Không tính true negative từ entry chưa gán.
+- Thuật toán gán nhãn auto là quy tắc định trước, tách khỏi model học từ nhãn;
+  không kết luận có circular evaluation chỉ vì test có nhãn auto. Báo cáo riêng
+  manual/auto vẫn hữu ích để nhận diện thiên lệch nhãn quy tắc.
+- Schema predictions có thể có null theo đề; không suy diễn null thành sample
+  âm. Dưới 5 references thì cand_* thiếu được null, ứng viên phải thuộc cùng bài.
+- Kết quả che ID/URL/DOI chỉ là phân tích phụ bên cạnh kết quả chính theo đề.
