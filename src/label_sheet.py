@@ -1,26 +1,48 @@
-"""Milestone 3 - manual labelling with a spreadsheet.
+"""Milestone 3 - 100% manual labelling with a spreadsheet.
 
-STEP 1  make
-    Tạo một CSV cho mỗi publication thủ công.
-    Mỗi BibTeX entry có một best_suggestion do thuật toán đề xuất.
-    best_suggestion CHỈ LÀ GỢI Ý, KHÔNG PHẢI GROUND TRUTH.
+STEP 1: make
+    Create one CSV per manual publication with every BibTeX entry of the
+    paper and these columns:
 
-STEP 2  fill
-    Mở CSV bằng Google Sheets và điền thủ công:
+        arxiv_id
+        citation_key
+        entry_title
+        entry_authors
+        entry_year
+        entry_venue
+        best_suggestion
         ref_arxiv_id
         match_detail
         note
 
-    ref_arxiv_id:
-        - arXiv ID của reference đúng
-        - none nếu đã kiểm tra và không có reference phù hợp
-        - để trống nếu chưa làm / chưa chắc
+    `best_suggestion` is an algorithmic hint only. It is NEVER copied to
+    `ref_arxiv_id` automatically.
 
-STEP 3  collect
-    Kiểm tra các CSV đã điền và tạo labels_manual_*.csv.
+STEP 2: fill
+    Open each CSV in Google Sheets and manually compare the BibTeX entry
+    against <paper>_references.csv.
 
-QUAN TRỌNG:
-    best_suggestion không bao giờ được dùng để tự động điền ref_arxiv_id.
+    - ref_arxiv_id = the human-verified ground truth arXiv ID
+    - ref_arxiv_id = "none" when no matching reference exists
+    - leave ref_arxiv_id blank when not done / uncertain
+    - match_detail explains the decision
+
+STEP 3: collect
+    Validate filled sheets and create labels.csv.
+
+Example:
+    python src/label_sheet.py make --mssv 24127465 \
+        --bibtex <m2 export>/tables/bibtex \
+        --references <m1>/work/tables/references.parquet \
+        --selection m3_selection/selection.csv \
+        --out-dir labeling/24127465 \
+        --papers 2602.11395 2602.12886 2602.11055 2602.10677 2602.11244
+
+    python src/label_sheet.py collect --mssv 24127465 \
+        --sheets-dir labeling/24127465_filled \
+        --references <m1>/work/tables/references.parquet \
+        --selection m3_selection/selection.csv \
+        --out labels/labels_manual_24127465.csv
 """
 
 from __future__ import annotations
@@ -64,15 +86,21 @@ NONE_WORDS = {"none", "no", "n", "-", "0", "null"}
 MIN_MATCHED_PER_PAPER = 20
 MIN_MATCHED_PER_PERSON = 100
 
+# Only used for the rough count printed in the terminal.
+STRONG_SCORE = 0.6
+
 
 # ---------------------------------------------------------------------------
-# IO
+# IO helpers
 # ---------------------------------------------------------------------------
 
 def read_rows(path, ids) -> pd.DataFrame:
-    """Đọc parquet hoặc CSV và chỉ giữ các publication cần thiết."""
+    """Read rows from a parquet file/folder or CSV.
+
+    The returned dataframe is restricted to the requested arXiv IDs.
+    """
     path = Path(path)
-    ids = sorted(ids)
+    ids = sorted(set(ids))
 
     if path.suffix.lower() == ".csv":
         frame = pd.read_csv(
@@ -80,6 +108,12 @@ def read_rows(path, ids) -> pd.DataFrame:
             dtype=str,
             keep_default_na=False,
         )
+
+        if "arxiv_id" not in frame.columns:
+            raise ValueError(
+                f"{path} does not contain required column 'arxiv_id'"
+            )
+
         return frame[
             frame["arxiv_id"].isin(ids)
         ].reset_index(drop=True)
@@ -91,12 +125,20 @@ def read_rows(path, ids) -> pd.DataFrame:
 
 
 def manual_papers(selection, mssv, explicit=None) -> list[str]:
-    """Lấy danh sách publication manual của annotator."""
+    """Return manual publications belonging to this annotator."""
     frame = pd.read_csv(
         selection,
         dtype=str,
         keep_default_na=False,
     )
+
+    required = {"owner", "kind", "arxiv_id"}
+    missing = required - set(frame.columns)
+
+    if missing:
+        raise ValueError(
+            f"{selection} is missing columns: {sorted(missing)}"
+        )
 
     mine = frame[
         (frame["owner"] == mssv)
@@ -104,7 +146,10 @@ def manual_papers(selection, mssv, explicit=None) -> list[str]:
     ]["arxiv_id"].tolist()
 
     if explicit:
-        extra = [p for p in explicit if p not in mine]
+        extra = [
+            p for p in explicit
+            if p not in mine
+        ]
 
         if extra:
             print(
@@ -119,7 +164,7 @@ def manual_papers(selection, mssv, explicit=None) -> list[str]:
 
 
 def as_list(value):
-    """Chuyển author field về list."""
+    """Normalize scalar/list-like author fields to a list of strings."""
     if value is None:
         return []
 
@@ -129,21 +174,109 @@ def as_list(value):
     if isinstance(value, str):
         return [value]
 
-    return [str(v) for v in list(value)]
+    try:
+        return [str(v) for v in list(value)]
+    except TypeError:
+        return [str(value)]
 
 
 # ---------------------------------------------------------------------------
-# Suggestion matcher
+# arXiv ID formatting
+# ---------------------------------------------------------------------------
+
+def _clean_cell(value) -> str:
+    """Undo spreadsheet decoration.
+
+    Examples:
+        ="2511.19116" -> 2511.19116
+        '2511.19116  -> 2511.19116
+        "2511.19116" -> 2511.19116
+    """
+    if value is None:
+        return ""
+
+    text = str(value).strip()
+
+    if text.startswith("="):
+        text = text[1:].strip()
+
+    if len(text) >= 2:
+        if (
+            (text.startswith('"') and text.endswith('"'))
+            or (text.startswith("'") and text.endswith("'"))
+        ):
+            text = text[1:-1].strip()
+
+    return text
+
+
+def fix_id(value) -> str:
+    """Normalize an arXiv ID from a spreadsheet cell."""
+    text = _clean_cell(value)
+
+    if not text:
+        return ""
+
+    if text.lower() in NONE_WORDS:
+        return "none"
+
+    canonical = canonical_arxiv_id(text)
+
+    if canonical:
+        return canonical
+
+    # A fallback for modern arXiv IDs that may have been damaged by
+    # spreadsheet formatting.
+    compact = re.sub(r"\s+", "", text)
+
+    m = re.fullmatch(
+        r"(\d{4})[.]?(\d{4,5})(?:v\d+)?",
+        compact,
+    )
+
+    if m:
+        return f"{m.group(1)}.{m.group(2)}"
+
+    # Old-style IDs such as cond-mat/0510677.
+    m = re.fullmatch(
+        r"([A-Za-z][A-Za-z0-9-]*)/(?:\d{7})(?:v\d+)?",
+        compact,
+    )
+
+    if m:
+        old = compact.split("/", 1)
+        return f"{old[0].lower()}/{old[1]}"
+
+    return text
+
+
+def sheet_text(value) -> str:
+    """Return a value formatted as a Google Sheets text formula.
+
+    This prevents Google Sheets from turning an arXiv ID such as
+    2511.19116 into a locale-formatted number.
+
+    Example:
+        2511.19116 -> ="2511.19116"
+    """
+    value = "" if value is None else str(value)
+
+    if not value:
+        return ""
+
+    escaped = value.replace('"', '""')
+    return f'="{escaped}"'
+
+
+# ---------------------------------------------------------------------------
+# Reference matching
 # ---------------------------------------------------------------------------
 
 class _Ref:
-    def __init__(self, row):
-        raw_id = str(row["ref_arxiv_id"])
+    """Lightweight representation of one crawled reference."""
 
-        self.id = (
-            canonical_arxiv_id(raw_id)
-            or raw_id
-        )
+    def __init__(self, row):
+        self.id = fix_id(row.get("ref_arxiv_id"))
 
         self.title = str(
             row.get("ref_title") or ""
@@ -162,21 +295,17 @@ class _Ref:
         )
 
         self.year = (
-            parse_year(
-                row.get("ref_submission_date")
-            )
+            parse_year(row.get("ref_submission_date"))
             or arxiv_id_year(self.id)
         )
 
 
 def _score(entry, ref) -> float:
-    """
-    Tính điểm gợi ý giữa BibTeX entry và reference.
+    """Score one BibTeX entry against one reference.
 
-    Đây chỉ là suggestion score.
-    Không phải ground truth.
+    The score is only used to provide a candidate suggestion.
+    It is NOT ground truth.
     """
-
     title_tokens_e = set(
         title_tokens(
             str(entry.get("title") or "")
@@ -192,10 +321,6 @@ def _score(entry, ref) -> float:
         )
     )
 
-    # ---------------------------------------------------------------
-    # Title similarity
-    # ---------------------------------------------------------------
-
     title = 0.0
 
     if title_tokens_e and ref.tset:
@@ -209,10 +334,6 @@ def _score(entry, ref) -> float:
             * len(common)
             / len(ref.tset),
         )
-
-    # ---------------------------------------------------------------
-    # Author similarity
-    # ---------------------------------------------------------------
 
     surnames = set(
         author_surnames(
@@ -231,28 +352,21 @@ def _score(entry, ref) -> float:
     else:
         author = 0.0
 
-    # ---------------------------------------------------------------
-    # Year similarity
-    # ---------------------------------------------------------------
-
     year = parse_year(
         entry.get("year")
     )
 
-    if (
-        year is not None
-        and ref.year is not None
-        and abs(year - ref.year) <= 1
-    ):
-        near = 1.0
-    else:
-        near = 0.0
+    near = (
+        1.0
+        if (
+            year is not None
+            and ref.year is not None
+            and abs(year - ref.year) <= 1
+        )
+        else 0.0
+    )
 
-    # ---------------------------------------------------------------
-    # Explicit arXiv ID match gets strong bonus
-    # ---------------------------------------------------------------
-
-    id_bonus = (
+    exact_id_bonus = (
         2.0
         if ref.id in ids
         else 0.0
@@ -262,12 +376,12 @@ def _score(entry, ref) -> float:
         0.6 * title
         + 0.3 * author
         + 0.1 * near
-        + id_bonus
+        + exact_id_bonus
     )
 
 
 def _short(text, n=90):
-    """Rút gọn text để hiển thị."""
+    """Normalize and shorten display text."""
     text = " ".join(
         str(text).split()
     )
@@ -279,98 +393,65 @@ def _short(text, n=90):
 
 
 # ---------------------------------------------------------------------------
-# Make spreadsheet
+# MAKE
 # ---------------------------------------------------------------------------
 
 def make_sheet(arxiv_id, entries, refs):
+    """Create one manual-label sheet.
+
+    Returns:
+        sheet:
+            DataFrame containing the CSV rows.
+
+        hints:
+            List of:
+                (citation_key, best_reference_id, score)
+
+    IMPORTANT:
+        best_suggestion is written to the CSV only as an algorithmic hint.
+        It is NEVER copied into ref_arxiv_id.
     """
-    Tạo dataframe cho một publication.
-
-    best_suggestion:
-        Gợi ý tốt nhất của thuật toán.
-
-    ref_arxiv_id:
-        LUÔN để trống để người dùng tự gán nhãn.
-
-    match_detail:
-        LUÔN để trống để người dùng ghi bằng chứng đối chiếu.
-    """
-
     refs_list = [
         _Ref(row)
-        for row in (
-            refs
-            .drop_duplicates("ref_arxiv_id")
-            .to_dict("records")
-        )
+        for row in refs
+        .drop_duplicates("ref_arxiv_id")
+        .to_dict("records")
     ]
 
     rows = []
+    hints = []
 
     for entry in (
         entries
         .drop_duplicates("citation_key")
         .to_dict("records")
     ):
-
-        # -----------------------------------------------------------
-        # Rank all references
-        # -----------------------------------------------------------
-
-        ranked = sorted(
+        score, best = max(
             (
-                (
-                    _score(entry, ref),
-                    ref,
-                )
+                (_score(entry, ref), ref)
                 for ref in refs_list
             ),
-            key=lambda x: -x[0],
+            key=lambda x: x[0],
+            default=(0.0, None),
         )
 
-        # -----------------------------------------------------------
-        # Best suggestion
-        # -----------------------------------------------------------
+        best_id = (
+            best.id
+            if best is not None and score > 0
+            else ""
+        )
 
-        if ranked:
-            best_score, best_ref = ranked[0]
-
-            if best_score > 0:
-                best_suggestion = best_ref.id
-            else:
-                best_suggestion = ""
-        else:
-            best_score = 0.0
-            best_suggestion = ""
-
-        # -----------------------------------------------------------
-        # Entry metadata
-        # -----------------------------------------------------------
+        hints.append(
+            (
+                entry["citation_key"],
+                best_id,
+                score,
+            )
+        )
 
         authors = as_list(
             entry.get("authors")
         )
-
-        entry_year = entry.get("year")
-
-        if entry_year != entry_year:
-            entry_year = ""
-
-        entry_venue = _short(
-            entry.get("journal")
-            or entry.get("url")
-            or "",
-            80,
-        )
-
-        # -----------------------------------------------------------
-        # IMPORTANT:
-        #
-        # best_suggestion = algorithm suggestion
-        # ref_arxiv_id    = human ground truth
-        #
-        # NEVER copy one into the other.
-        # -----------------------------------------------------------
 
         rows.append(
             {
@@ -381,8 +462,7 @@ def make_sheet(arxiv_id, entries, refs):
                 ],
 
                 "entry_title": str(
-                    entry.get("title")
-                    or ""
+                    entry.get("title") or ""
                 ),
 
                 "entry_authors": (
@@ -394,16 +474,24 @@ def make_sheet(arxiv_id, entries, refs):
                     )
                 ),
 
-                "entry_year": entry_year,
-
-                "entry_venue": entry_venue,
-
-                # THIS IS THE FIX
-                "best_suggestion": (
-                    best_suggestion
+                "entry_year": (
+                    entry.get("year")
+                    if entry.get("year")
+                    == entry.get("year")
+                    else ""
                 ),
 
-                # Human fills these manually
+                "entry_venue": _short(
+                    entry.get("journal")
+                    or entry.get("url")
+                    or "",
+                    80,
+                ),
+
+                # Algorithmic suggestion ONLY.
+                "best_suggestion": best_id,
+
+                # Human ground truth starts EMPTY.
                 "ref_arxiv_id": "",
 
                 "match_detail": "",
@@ -412,20 +500,19 @@ def make_sheet(arxiv_id, entries, refs):
             }
         )
 
-    # Explicit column order.
-    # This prevents pandas from silently dropping best_suggestion.
-    return pd.DataFrame(
+    # IMPORTANT:
+    # best_suggestion must be present in SHEET_COLUMNS.
+    # Otherwise pandas silently drops it from the DataFrame.
+    sheet = pd.DataFrame(
         rows,
         columns=SHEET_COLUMNS,
     )
 
+    return sheet, hints
 
-# ---------------------------------------------------------------------------
-# MAKE command
-# ---------------------------------------------------------------------------
 
 def cmd_make(a):
-
+    """Generate manual-labeling CSV sheets."""
     papers = manual_papers(
         a.selection,
         a.mssv,
@@ -434,8 +521,7 @@ def cmd_make(a):
 
     if not papers:
         raise SystemExit(
-            f"no manual publication found "
-            f"for {a.mssv}"
+            f"no manual publication found for {a.mssv}"
         )
 
     bib = read_rows(
@@ -454,19 +540,16 @@ def cmd_make(a):
         exist_ok=True,
     )
 
-    print(
-        "NOTE: 'Best suggestion' lines below "
-        "are hints only. They are also written "
-        "to the `best_suggestion` CSV column, "
-        "but they are NOT ground truth: check "
-        "every entry by hand against "
-        "<paper>_references.csv."
-    )
-
-    print()
+    if not a.no_suggestions:
+        print(
+            "NOTE: 'Best suggestion' lines below are "
+            "hints only. They are also written to the "
+            "`best_suggestion` CSV column, but they are "
+            "NOT ground truth: check every entry by hand "
+            "against <paper>_references.csv.\n"
+        )
 
     for paper in papers:
-
         entries = bib[
             bib["arxiv_id"] == paper
         ]
@@ -475,62 +558,34 @@ def cmd_make(a):
             refs["arxiv_id"] == paper
         ]
 
-        if (
-            entries.empty
-            or paper_refs.empty
-        ):
+        if entries.empty or paper_refs.empty:
             print(
-                f"{paper}: "
-                f"{len(entries)} entries, "
-                f"{len(paper_refs)} references "
-                "-> cannot be labelled, "
-                "use a reserve "
+                f"{paper}: {len(entries)} entries, "
+                f"{len(paper_refs)} references -> "
+                "cannot be labelled, use a reserve "
                 "(split.py --replace)"
             )
             continue
 
-        sheet = make_sheet(
+        sheet, hints = make_sheet(
             paper,
             entries,
             paper_refs,
         )
 
-        # -----------------------------------------------------------
-        # Count strong suggestions
-        # -----------------------------------------------------------
-
-        strong = 0
-
-        for value in sheet[
-            "best_suggestion"
-        ]:
-
-            if str(value).strip():
-                strong += 1
-
-        # -----------------------------------------------------------
-        # WRITE MAIN CSV
-        # -----------------------------------------------------------
-
-        output_csv = (
-            out / f"{paper}.csv"
-        )
+        # Force publication ID to text in Google Sheets.
+        sheet["arxiv_id"] = sheet[
+            "arxiv_id"
+        ].map(sheet_text)
 
         sheet.to_csv(
-            output_csv,
+            out / f"{paper}.csv",
             index=False,
             encoding="utf-8-sig",
         )
 
-        # -----------------------------------------------------------
-        # WRITE REFERENCES CSV
-        # -----------------------------------------------------------
-
-        references_csv = (
-            out / f"{paper}_references.csv"
-        )
-
-        refs_to_write = paper_refs[
+        # Reference file used by the human annotator.
+        ref_export = paper_refs[
             [
                 "ref_arxiv_id",
                 "ref_title",
@@ -539,575 +594,274 @@ def cmd_make(a):
             ]
         ].copy()
 
-        refs_to_write[
-            "ref_arxiv_id"
-        ] = refs_to_write[
-            "ref_arxiv_id"
-        ].map(
-            lambda value:
-                canonical_arxiv_id(
-                    value
-                )
-                or str(value)
+        ref_export["ref_arxiv_id"] = (
+            ref_export["ref_arxiv_id"]
+            .map(sheet_text)
         )
 
-        refs_to_write[
-            "ref_authors"
-        ] = refs_to_write[
-            "ref_authors"
-        ].map(
-            lambda value:
-                ", ".join(
-                    as_list(value)
-                )
+        ref_export["ref_authors"] = (
+            ref_export["ref_authors"]
+            .map(
+                lambda value:
+                ", ".join(as_list(value))
+            )
         )
 
-        refs_to_write.to_csv(
-            references_csv,
+        ref_export.to_csv(
+            out / f"{paper}_references.csv",
             index=False,
             encoding="utf-8-sig",
         )
 
-        # -----------------------------------------------------------
-        # Terminal output
-        # -----------------------------------------------------------
+        strong = sum(
+            1
+            for _, _, score in hints
+            if score >= STRONG_SCORE
+        )
 
         print(
-            f"{paper}: "
-            f"{len(sheet)} entries, "
-            f"{paper_refs['ref_arxiv_id'].nunique()} references, "
-            f"~{strong} entries with a strong suggestion "
-            f"(a rough guide to how many matches to expect)"
+            f"{paper}: {len(sheet)} entries, "
+            f"{paper_refs['ref_arxiv_id'].nunique()} "
+            f"references, ~{strong} entries with a strong "
+            "suggestion (a rough guide to how many matches "
+            "to expect)"
         )
 
-        # -----------------------------------------------------------
-        # Print actual suggestions
-        # -----------------------------------------------------------
-
-        for row in sheet.itertuples(
-            index=False
-        ):
-
-            suggestion = str(
-                row.best_suggestion
-            ).strip()
-
-            if suggestion:
+        if not a.no_suggestions:
+            for key, best, _ in hints:
                 print(
-                    f"  {row.citation_key}: "
-                    f"Best suggestion: "
-                    f"{suggestion}"
+                    f"  {key}: Best suggestion: "
+                    f"{best or 'none'}"
                 )
 
-    print()
-
     print(
-        f"Sheets written to {out}. "
-        "Next: fill ref_arxiv_id / "
-        "match_detail by hand, then run `collect`."
+        f"\nSheets written to {out}. "
+        "Next: fill ref_arxiv_id / match_detail by hand, "
+        "then run `collect`."
     )
 
 
 # ---------------------------------------------------------------------------
-# Collect helpers
-# ---------------------------------------------------------------------------
-
-def fix_id(value, valid):
-    """
-    Normalize arXiv IDs and repair
-    common spreadsheet formatting errors.
-
-    Examples:
-
-        2511.19116
-            -> 2511.19116
-
-        251119116
-            -> 2511.19116
-
-        251.119.116
-            -> 2511.19116
-
-        1810.0481
-            -> 1810.04810
-            if that canonical ID exists in valid
-    """
-
-    value = str(value).strip()
-
-    # Empty
-    if not value:
-        return None
-
-    # Remove spreadsheet formula decoration
-    if value.startswith("="):
-        value = value[1:]
-
-    value = value.strip(
-        "\"'"
-    ).strip()
-
-    # Direct match
-    if value in valid:
-        return value
-
-    # -----------------------------------------------------------
-    # canonical_arxiv_id
-    # -----------------------------------------------------------
-
-    canon = canonical_arxiv_id(
-        value
-    )
-
-    if canon in valid:
-        return canon
-
-    # -----------------------------------------------------------
-    # Standard modern arXiv ID
-    # Example:
-    #     2511.19116
-    # -----------------------------------------------------------
-
-    m = re.fullmatch(
-        r"(\d{4})\.(\d{1,5})",
-        value,
-    )
-
-    if m:
-
-        candidate = (
-            f"{m.group(1)}."
-            f"{m.group(2).ljust(5, '0')}"
-        )
-
-        if candidate in valid:
-            return candidate
-
-    # -----------------------------------------------------------
-    # Spreadsheet removed the dot:
-    #
-    # 251119116
-    # -> 2511.19116
-    # -----------------------------------------------------------
-
-    m = re.fullmatch(
-        r"(\d{4})(\d{5})",
-        value,
-    )
-
-    if m:
-
-        candidate = (
-            f"{m.group(1)}."
-            f"{m.group(2)}"
-        )
-
-        if candidate in valid:
-            return candidate
-
-    # -----------------------------------------------------------
-    # Spreadsheet inserted thousands separators:
-    #
-    # 251.119.116
-    # -> 2511.19116
-    # -----------------------------------------------------------
-
-    compact = value.replace(
-        ".",
-        "",
-    )
-
-    if re.fullmatch(
-        r"\d{9}",
-        compact,
-    ):
-
-        candidate = (
-            f"{compact[:4]}."
-            f"{compact[4:]}"
-        )
-
-        if candidate in valid:
-            return candidate
-
-    return None
-
-
-# ---------------------------------------------------------------------------
-# COLLECT command
+# COLLECT
 # ---------------------------------------------------------------------------
 
 def cmd_collect(a):
+    """Validate filled manual sheets and write labels.csv."""
+    sheets_dir = Path(a.sheets_dir)
+
+    if not sheets_dir.is_dir():
+        raise SystemExit(
+            f"Missing sheets directory: {sheets_dir}"
+        )
 
     papers = manual_papers(
         a.selection,
         a.mssv,
-        a.papers,
+        None,
     )
 
-    files = sorted(
-        p
-        for p in Path(
-            a.sheets_dir
-        ).glob("*.csv")
-        if not p.name.endswith(
-            "_references.csv"
-        )
-    )
-
-    if not files:
+    if not papers:
         raise SystemExit(
-            f"no sheet in {a.sheets_dir}"
+            f"no manual publication found for {a.mssv}"
         )
-
-    # -----------------------------------------------------------
-    # Read all filled sheets
-    # -----------------------------------------------------------
-
-    frames = []
-
-    for file in files:
-
-        frame = pd.read_csv(
-            file,
-            dtype=str,
-            keep_default_na=False,
-        )
-
-        frames.append(frame)
-
-    sheets = pd.concat(
-        frames,
-        ignore_index=True,
-    )
-
-    # -----------------------------------------------------------
-    # Validate required columns
-    # -----------------------------------------------------------
-
-    required_columns = {
-        "arxiv_id",
-        "citation_key",
-        "ref_arxiv_id",
-    }
-
-    missing = (
-        required_columns
-        - set(sheets.columns)
-    )
-
-    if missing:
-        raise SystemExit(
-            "Missing required columns: "
-            + ", ".join(
-                sorted(missing)
-            )
-        )
-
-    # -----------------------------------------------------------
-    # Normalize publication IDs
-    # -----------------------------------------------------------
-
-    paper_set = set(papers)
-
-    sheets["arxiv_id"] = [
-        fix_id(
-            value,
-            paper_set,
-        )
-        or value
-        for value in sheets[
-            "arxiv_id"
-        ]
-    ]
-
-    # -----------------------------------------------------------
-    # Read valid references
-    # -----------------------------------------------------------
 
     refs = read_rows(
         a.references,
-        set(
-            sheets["arxiv_id"]
-        ),
+        papers,
     )
 
-    valid = {
-        paper: set(
-            group[
-                "ref_arxiv_id"
-            ].map(
-                lambda value:
-                    canonical_arxiv_id(
-                        value
-                    )
-                    or str(value)
-            )
-        )
-        for paper, group
-        in refs.groupby(
-            "arxiv_id"
-        )
-    }
-
+    labels = []
     errors = []
     warnings = []
-    rows = []
-
-    # -----------------------------------------------------------
-    # Duplicate BibTeX entries
-    # -----------------------------------------------------------
-
-    if sheets.duplicated(
-        [
-            "arxiv_id",
-            "citation_key",
-        ]
-    ).any():
-
-        errors.append(
-            "duplicated "
-            "(arxiv_id, citation_key) "
-            "rows across the sheets"
-        )
-
-    # -----------------------------------------------------------
-    # Validate each manually labelled row
-    # -----------------------------------------------------------
-
-    for row in sheets.itertuples(
-        index=False
-    ):
-
-        value = str(
-            row.ref_arxiv_id
-        ).strip()
-
-        # Blank = not labelled yet
-        if not value:
-            continue
-
-        # -------------------------------------------------------
-        # none = all-negative example
-        # -------------------------------------------------------
-
-        if value.lower() in NONE_WORDS:
-
-            rows.append(
-                (
-                    row.arxiv_id,
-                    row.citation_key,
-                    "",
-                )
-            )
-
-            continue
-
-        # -------------------------------------------------------
-        # Validate actual arXiv reference
-        # -------------------------------------------------------
-
-        ref = fix_id(
-            value,
-            valid.get(
-                row.arxiv_id,
-                set(),
-            ),
-        )
-
-        if ref is None:
-
-            errors.append(
-                f"{row.arxiv_id} / "
-                f"{row.citation_key}: "
-                f"'{value}' is not a "
-                f"reference of this publication"
-            )
-
-        else:
-
-            rows.append(
-                (
-                    row.arxiv_id,
-                    row.citation_key,
-                    ref,
-                )
-            )
-
-    # -----------------------------------------------------------
-    # Build labels
-    # -----------------------------------------------------------
-
-    labels = pd.DataFrame(
-        rows,
-        columns=[
-            "arxiv_id",
-            "citation_key",
-            "ref_arxiv_id",
-        ],
-    )
-
-    # -----------------------------------------------------------
-    # Per-paper statistics
-    # -----------------------------------------------------------
-
-    print(
-        f"{'paper':12s} "
-        f"{'entries':>7s} "
-        f"{'done':>5s} "
-        f"{'matched':>8s} "
-        f"{'none':>5s} "
-        f"{'todo':>5s}"
-    )
-
-    total_matched = 0
 
     for paper in papers:
-
-        total = int(
-            (
-                sheets["arxiv_id"]
-                == paper
-            ).sum()
+        sheet_path = (
+            sheets_dir / f"{paper}.csv"
         )
 
-        mine = labels[
-            labels["arxiv_id"]
-            == paper
+        if not sheet_path.is_file():
+            errors.append(
+                f"{paper}: missing filled sheet "
+                f"{sheet_path}"
+            )
+            continue
+
+        sheet = pd.read_csv(
+            sheet_path,
+            dtype=str,
+            keep_default_na=False,
+            encoding="utf-8-sig",
+        )
+
+        required = {
+            "arxiv_id",
+            "citation_key",
+            "entry_title",
+            "entry_authors",
+            "entry_year",
+            "entry_venue",
+            "ref_arxiv_id",
+            "match_detail",
+            "note",
+        }
+
+        missing = (
+            required
+            - set(sheet.columns)
+        )
+
+        if missing:
+            errors.append(
+                f"{paper}: missing columns "
+                f"{sorted(missing)}"
+            )
+            continue
+
+        paper_refs = refs[
+            refs["arxiv_id"] == paper
         ]
 
-        matched = int(
-            (
-                mine[
-                    "ref_arxiv_id"
-                ] != ""
-            ).sum()
-        )
+        valid_refs = {
+            fix_id(value)
+            for value in paper_refs[
+                "ref_arxiv_id"
+            ].tolist()
+        }
 
-        total_matched += matched
+        # Remove empty/invalid IDs from valid reference set.
+        valid_refs.discard("")
 
-        flag = ""
+        matched_count = 0
+        paper_labels = []
 
-        if matched < MIN_MATCHED_PER_PAPER:
-
-            flag = (
-                f"   <-- needs >= "
-                f"{MIN_MATCHED_PER_PAPER} matched"
+        for _, row in sheet.iterrows():
+            ref = fix_id(
+                row.get("ref_arxiv_id", "")
             )
 
-        print(
-            f"{paper:12s} "
-            f"{total:7d} "
-            f"{len(mine):5d} "
-            f"{matched:8d} "
-            f"{len(mine) - matched:5d} "
-            f"{total - len(mine):5d}"
-            f"{flag}"
-        )
+            citation_key = str(
+                row.get("citation_key", "")
+            ).strip()
 
-        if (
-            total
-            and matched < MIN_MATCHED_PER_PAPER
-            and total - len(mine) == 0
-        ):
+            # Blank = not labelled yet.
+            if ref == "":
+                continue
 
+            # "none" = explicitly verified no match.
+            if ref == "none":
+                paper_labels.append(
+                    {
+                        "arxiv_id": paper,
+                        "citation_key": citation_key,
+                        "ref_arxiv_id": "",
+                        "source": "manual",
+                        "annotator": (
+                            a.annotator
+                            or a.mssv
+                        ),
+                    }
+                )
+                continue
+
+            # Non-none ID must be one of this paper's references.
+            if ref not in valid_refs:
+                errors.append(
+                    f"{paper}/{citation_key}: "
+                    f"ref_arxiv_id={ref!r} is not "
+                    "a reference of this publication"
+                )
+                continue
+
+            matched_count += 1
+
+            paper_labels.append(
+                {
+                    "arxiv_id": paper,
+                    "citation_key": citation_key,
+                    "ref_arxiv_id": ref,
+                    "source": "manual",
+                    "annotator": (
+                        a.annotator
+                        or a.mssv
+                    ),
+                }
+            )
+
+        if matched_count < MIN_MATCHED_PER_PAPER:
             errors.append(
-                f"{paper}: only "
-                f"{matched} matched pairs "
-                f"(< {MIN_MATCHED_PER_PAPER}); "
-                "replace it by a reserve publication"
+                f"{paper}: only {matched_count} "
+                f"matched pairs; minimum is "
+                f"{MIN_MATCHED_PER_PAPER}"
             )
 
-        if total == 0:
+        # Warn if the same reference was assigned to many entries.
+        counts = {}
 
-            errors.append(
-                f"{paper}: no sheet found"
-            )
+        for label in paper_labels:
+            ref = label["ref_arxiv_id"]
 
-    # -----------------------------------------------------------
-    # Overall statistics
-    # -----------------------------------------------------------
+            if ref:
+                counts[ref] = (
+                    counts.get(ref, 0) + 1
+                )
 
-    print(
-        f"matched pairs for {a.mssv}: "
-        f"{total_matched} "
-        f"(needs >= {MIN_MATCHED_PER_PERSON})"
-    )
+        for ref, n in counts.items():
+            if n >= 3:
+                warnings.append(
+                    f"{paper}: reference {ref} is "
+                    f"the answer of {n} entries "
+                    "(check they are not two different works)"
+                )
 
-    if total_matched < MIN_MATCHED_PER_PERSON:
-
-        warnings.append(
-            f"{total_matched} matched pairs "
-            f"in total, < "
-            f"{MIN_MATCHED_PER_PERSON}"
-        )
-
-    # -----------------------------------------------------------
-    # Multiple BibTeX entries pointing to same reference
-    # -----------------------------------------------------------
-
-    shared = (
-        labels[
-            labels["ref_arxiv_id"] != ""
-        ]
-        .groupby(
-            [
-                "arxiv_id",
-                "ref_arxiv_id",
-            ]
-        )
-        .size()
-    )
-
-    for (
-        paper,
-        ref,
-    ), n in shared[
-        shared > 1
-    ].items():
-
-        warnings.append(
-            f"{paper}: reference {ref} "
-            f"is the answer of {n} entries "
-            "(check they are not two different works)"
-        )
-
-    # -----------------------------------------------------------
-    # Print warnings
-    # -----------------------------------------------------------
+        labels.extend(paper_labels)
 
     for warning in warnings:
-
         print(
             "WARNING:",
             warning,
         )
 
-    # -----------------------------------------------------------
-    # Stop on errors
-    # -----------------------------------------------------------
-
     if errors:
-
-        for error in errors:
-
-            print(
-                "ERROR:",
-                error,
+        print(
+            "\n".join(
+                "ERROR:  " + error
+                for error in errors
             )
-
+        )
         raise SystemExit(1)
 
-    # -----------------------------------------------------------
-    # Final labels
-    # -----------------------------------------------------------
+    # Only matched rows + explicit none rows are included.
+    if len(labels) < MIN_MATCHED_PER_PERSON:
+        raise SystemExit(
+            f"Only {len(labels)} labelled rows found; "
+            f"minimum is {MIN_MATCHED_PER_PERSON}"
+        )
 
-    labels["source"] = "manual"
-
-    labels["annotator"] = (
-        a.annotator
-        or a.mssv
+    labels_df = pd.DataFrame(
+        labels,
+        columns=[
+            "arxiv_id",
+            "citation_key",
+            "ref_arxiv_id",
+            "source",
+            "annotator",
+        ],
     )
+
+    # Count actual positive matches.
+    total_matched = int(
+        labels_df["ref_arxiv_id"]
+        .astype(str)
+        .str.strip()
+        .ne("")
+        .sum()
+    )
+
+    if total_matched < MIN_MATCHED_PER_PERSON:
+        raise SystemExit(
+            f"Only {total_matched} matched pairs found; "
+            f"minimum is {MIN_MATCHED_PER_PERSON}"
+        )
 
     out = Path(a.out)
 
@@ -1116,14 +870,14 @@ def cmd_collect(a):
         exist_ok=True,
     )
 
-    labels.to_csv(
+    labels_df.to_csv(
         out,
         index=False,
         encoding="utf-8",
     )
 
     print(
-        f"wrote {len(labels)} labels -> {out}"
+        f"wrote {len(labels_df)} labels -> {out}"
     )
 
 
@@ -1132,11 +886,9 @@ def cmd_collect(a):
 # ---------------------------------------------------------------------------
 
 def main():
-
     ap = argparse.ArgumentParser(
         description=(
-            "Manual labelling "
-            "with spreadsheets"
+            "100% manual labelling with spreadsheets"
         )
     )
 
@@ -1145,60 +897,33 @@ def main():
         required=True,
     )
 
+    # ------------------------------------------------------------------
+    # make
+    # ------------------------------------------------------------------
+
     make = sub.add_parser(
-        "make"
+        "make",
+        help="create manual labelling sheets",
     )
 
-    collect = sub.add_parser(
-        "collect"
+    make.add_argument(
+        "--mssv",
+        required=True,
     )
-
-    # -----------------------------------------------------------
-    # Common arguments
-    # -----------------------------------------------------------
-
-    for parser in (
-        make,
-        collect,
-    ):
-
-        parser.add_argument(
-            "--mssv",
-            required=True,
-        )
-
-        parser.add_argument(
-            "--selection",
-            required=True,
-        )
-
-        parser.add_argument(
-            "--references",
-            required=True,
-        )
-
-        parser.add_argument(
-            "--papers",
-            nargs="*",
-            default=None,
-            help=(
-                "manual publications "
-                "(default: publications "
-                "of selection.csv)"
-            ),
-        )
-
-    # -----------------------------------------------------------
-    # make arguments
-    # -----------------------------------------------------------
 
     make.add_argument(
         "--bibtex",
         required=True,
-        help=(
-            "M2 bibtex table "
-            "(folder of shards)"
-        ),
+    )
+
+    make.add_argument(
+        "--references",
+        required=True,
+    )
+
+    make.add_argument(
+        "--selection",
+        required=True,
     )
 
     make.add_argument(
@@ -1206,12 +931,46 @@ def main():
         required=True,
     )
 
-    # -----------------------------------------------------------
-    # collect arguments
-    # -----------------------------------------------------------
+    make.add_argument(
+        "--papers",
+        nargs="*",
+    )
+
+    make.add_argument(
+        "--no-suggestions",
+        action="store_true",
+    )
+
+    make.set_defaults(
+        func=cmd_make
+    )
+
+    # ------------------------------------------------------------------
+    # collect
+    # ------------------------------------------------------------------
+
+    collect = sub.add_parser(
+        "collect",
+        help="validate filled sheets and create labels.csv",
+    )
+
+    collect.add_argument(
+        "--mssv",
+        required=True,
+    )
 
     collect.add_argument(
         "--sheets-dir",
+        required=True,
+    )
+
+    collect.add_argument(
+        "--references",
+        required=True,
+    )
+
+    collect.add_argument(
+        "--selection",
         required=True,
     )
 
@@ -1222,20 +981,15 @@ def main():
 
     collect.add_argument(
         "--annotator",
-        default=None,
+        default="",
     )
 
-    # -----------------------------------------------------------
-    # Execute
-    # -----------------------------------------------------------
+    collect.set_defaults(
+        func=cmd_collect
+    )
 
     args = ap.parse_args()
-
-    if args.command == "make":
-        cmd_make(args)
-
-    elif args.command == "collect":
-        cmd_collect(args)
+    args.func(args)
 
 
 if __name__ == "__main__":
