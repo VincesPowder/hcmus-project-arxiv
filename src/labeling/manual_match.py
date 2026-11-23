@@ -316,6 +316,53 @@ def print_candidates(candidates):
         print("    Year    :", candidate["year"])
 
 
+def reference_to_candidate(ref, columns, score=0):
+    """Convert one reference row to a display/selection record."""
+    return {
+        "score": score,
+        "arxiv_id": normalize_reference_id(ref.get(columns["id"], "")),
+        "title": str(ref.get(columns["title"], "")) if columns["title"] else "",
+        "authors": str(ref.get(columns["authors"], "")) if columns["authors"] else "",
+        "year": normalize_year(ref.get(columns["year"], "")) if columns["year"] else "",
+    }
+
+
+def search_references(query, refs, columns):
+    """Search the complete reference list by ID, title, authors, or year."""
+    query_norm = norm(query)
+    if not query_norm:
+        return refs.iloc[0:0]
+
+    searchable_columns = [
+        columns.get("id"),
+        columns.get("title"),
+        columns.get("authors"),
+        columns.get("year"),
+    ]
+    searchable_columns = [c for c in searchable_columns if c]
+
+    mask = pd.Series(False, index=refs.index)
+    for col in searchable_columns:
+        mask = mask | refs[col].astype(str).map(
+            lambda value: query_norm in norm(value)
+        )
+    return refs[mask].copy()
+
+
+def print_all_references(refs, columns):
+    """Display every reference with a stable 1-based row number."""
+    print()
+    print(f"TOÀN BỘ REFERENCES ({len(refs)} records)")
+    print("-" * 110)
+
+    for number, (_, ref) in enumerate(refs.iterrows(), start=1):
+        item = reference_to_candidate(ref, columns)
+        print(f"\\n[{number}] arXiv ID: {item['arxiv_id']}")
+        print("    Title   :", item["title"])
+        print("    Authors :", item["authors"])
+        print("    Year    :", item["year"])
+
+
 # ============================================================
 # Save result
 # ============================================================
@@ -346,6 +393,7 @@ def run_interactive(df, refs, columns):
         print(f"CITATION {index + 1}/{total}")
         print("=" * 110)
 
+        print("STT              :", row.get("stt", index + 1))
         print("Citation key     :", row.get("citation_key", ""))
         print("Title            :", row.get("entry_title", ""))
         print("Authors          :", row.get("entry_authors", ""))
@@ -355,27 +403,23 @@ def run_interactive(df, refs, columns):
         print("Current ref      :", row.get("ref_arxiv_id", ""))
 
         suggestion = normalize_reference_id(row.get("best_suggestion", ""))
-
         if suggestion:
             print_reference(refs, columns, suggestion)
 
-        candidates = find_candidates(
-            row,
-            refs,
-            columns,
-            top_n=5,
-        )
+        candidates = find_candidates(row, refs, columns, top_n=5)
         print_candidates(candidates)
 
-        print()
-        print("LỰA CHỌN:")
-        print("  1-5 = chọn candidate tương ứng")
-        print("  m   = nhập arXiv ID thủ công")
-        print("  n   = NONE, không có reference phù hợp")
-        print("  s   = SKIP, chưa chắc / làm sau")
-        print("  q   = QUIT")
-
         while True:
+            print()
+            print("LỰA CHỌN:")
+            print("  1-5 = chọn candidate trong TOP 5")
+            print("  f   = tìm trong TOÀN BỘ references theo ID / title / author / year")
+            print("  a   = hiển thị TOÀN BỘ references")
+            print("  m   = nhập arXiv ID thủ công nếu đã biết")
+            print("  n   = NONE, chỉ chọn sau khi đã kiểm tra toàn bộ references")
+            print("  s   = SKIP, chưa chắc / làm sau")
+            print("  q   = QUIT")
+
             choice = input("\nChọn: ").strip().lower()
 
             if choice == "q":
@@ -387,28 +431,83 @@ def run_interactive(df, refs, columns):
                 break
 
             if choice == "n":
+                confirm_none = input(
+                    "Bạn đã kiểm tra TOÀN BỘ references và chắc chắn không có bài phù hợp? [y/N]: "
+                ).strip().lower()
+                if confirm_none != "y":
+                    print("Chưa xác nhận NONE. Tiếp tục kiểm tra citation này.")
+                    continue
                 df.at[index, "ref_arxiv_id"] = "none"
-                df.at[index, "match_detail"] = "No matching reference found"
+                df.at[index, "match_detail"] = "No matching reference found after full-list review"
                 df.at[index, "note"] = ""
                 break
 
-            if choice == "m":
-                manual_id = normalize_reference_id(
-                    input("Nhập arXiv ID đúng: ")
-                )
+            if choice == "f":
+                query = input("Nhập từ khóa tìm kiếm (title / author / ID / year): ").strip()
+                matches = search_references(query, refs, columns)
+                print()
+                print(f"KẾT QUẢ TÌM KIẾM: {len(matches)}")
+                print("-" * 100)
 
+                if matches.empty:
+                    print("Không tìm thấy. Thử từ khóa khác hoặc dùng 'a' để xem toàn bộ.")
+                    continue
+
+                found_items = []
+                for result_no, (_, ref) in enumerate(matches.iterrows(), start=1):
+                    item = reference_to_candidate(ref, columns)
+                    found_items.append(item)
+                    print(f"\n[{result_no}] arXiv ID: {item['arxiv_id']}")
+                    print("    Title   :", item["title"])
+                    print("    Authors :", item["authors"])
+                    print("    Year    :", item["year"])
+
+                selected = input("\nNhập số kết quả để chọn (Enter = quay lại): ").strip()
+                if not selected:
+                    continue
+                if not selected.isdigit() or not (1 <= int(selected) <= len(found_items)):
+                    print("Số kết quả không hợp lệ.")
+                    continue
+
+                selected_item = found_items[int(selected) - 1]
+                print("\nBạn chọn:", selected_item["arxiv_id"], "-", selected_item["title"])
+                confirm = input("Xác nhận đây là reference đúng? [y/N]: ").strip().lower()
+                if confirm == "y":
+                    df.at[index, "ref_arxiv_id"] = selected_item["arxiv_id"]
+                    df.at[index, "match_detail"] = "Manual verification from full-reference search"
+                    df.at[index, "note"] = ""
+                    break
+                continue
+
+            if choice == "a":
+                print_all_references(refs, columns)
+                selected = input("\nNhập STT reference để chọn (0 = quay lại): ").strip()
+                if selected == "0" or not selected:
+                    continue
+                if not selected.isdigit() or not (1 <= int(selected) <= len(refs)):
+                    print("STT reference không hợp lệ.")
+                    continue
+
+                ref = refs.iloc[int(selected) - 1]
+                selected_item = reference_to_candidate(ref, columns)
+                print("\nBạn chọn:", selected_item["arxiv_id"], "-", selected_item["title"])
+                confirm = input("Xác nhận đây là reference đúng? [y/N]: ").strip().lower()
+                if confirm == "y":
+                    df.at[index, "ref_arxiv_id"] = selected_item["arxiv_id"]
+                    df.at[index, "match_detail"] = "Manual verification from full reference list"
+                    df.at[index, "note"] = ""
+                    break
+                continue
+
+            if choice == "m":
+                manual_id = normalize_reference_id(input("Nhập arXiv ID đúng: "))
                 if not manual_id:
                     print("ID không được rỗng.")
                     continue
 
                 found = get_reference_by_id(refs, columns, manual_id)
-
                 if found.empty:
-                    print(
-                        "CẢNH BÁO: ID này không có trong references "
-                        "của publication."
-                    )
-
+                    print("CẢNH BÁO: ID này không có trong references của publication.")
                     confirm = input("Vẫn sử dụng ID này? [y/N]: ").strip().lower()
                     if confirm != "y":
                         continue
@@ -420,21 +519,15 @@ def run_interactive(df, refs, columns):
 
             if choice.isdigit():
                 number = int(choice)
-
                 if 1 <= number <= len(candidates):
                     selected_id = candidates[number - 1]["arxiv_id"]
-
-                    print()
-                    print("Bạn chọn:", selected_id)
-
+                    print("\nBạn chọn:", selected_id)
                     confirm = input("Xác nhận matched? [y/N]: ").strip().lower()
                     if confirm != "y":
                         continue
 
                     df.at[index, "ref_arxiv_id"] = selected_id
-                    df.at[index, "match_detail"] = (
-                        "Manual verification from candidate"
-                    )
+                    df.at[index, "match_detail"] = "Manual verification from TOP candidate"
                     df.at[index, "note"] = ""
                     break
 

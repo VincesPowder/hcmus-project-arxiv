@@ -69,6 +69,7 @@ from text_clean import (
 # ---------------------------------------------------------------------------
 
 SHEET_COLUMNS = [
+    "stt",
     "arxiv_id",
     "citation_key",
     "entry_title",
@@ -421,10 +422,11 @@ def make_sheet(arxiv_id, entries, refs):
     rows = []
     hints = []
 
-    for entry in (
+    for stt, entry in enumerate(
         entries
         .drop_duplicates("citation_key")
-        .to_dict("records")
+        .to_dict("records"),
+        start=1,
     ):
         score, best = max(
             (
@@ -455,6 +457,8 @@ def make_sheet(arxiv_id, entries, refs):
 
         rows.append(
             {
+                "stt": stt,
+
                 "arxiv_id": arxiv_id,
 
                 "citation_key": entry[
