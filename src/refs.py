@@ -26,6 +26,11 @@ are never merged together.
 from __future__ import annotations
 
 import re
+<<<<<<< HEAD
+=======
+import unicodedata
+from collections import defaultdict
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
 
 from gather import find_cited_keys, load_bib_texts
 
@@ -59,7 +64,23 @@ def _clean_value(text: str) -> str:
     """Strip LaTeX markup from a BibTeX field value (keeps the inner text)."""
     if not text:
         return ""
+<<<<<<< HEAD
     t = text.replace("~", " ")
+=======
+    accents = {"'": "\u0301", '"': "\u0308", "^": "\u0302", "~": "\u0303",
+               "=": "\u0304", ".": "\u0307", "u": "\u0306", "v": "\u030c",
+               "H": "\u030b", "c": "\u0327", "k": "\u0328", "b": "\u0331", "d": "\u0323",
+               chr(96): "\u0300"}
+    def accent(match):
+        return unicodedata.normalize("NFC", match.group(2) + accents[match.group(1)])
+    symbolic = r"\\(['" + '"' + "^~=." + chr(96) + r"])\s*\{?([A-Za-zı])\}?"
+    t = re.sub(symbolic, accent, text)
+    t = re.sub(r"\\([uvHckbd])(?:\s+|\s*\{)([A-Za-z])\}?", accent, t)
+    letters = {"aa": "å", "AA": "Å", "o": "ø", "O": "Ø", "l": "ł", "L": "Ł",
+               "ss": "ß", "ae": "æ", "AE": "Æ", "oe": "œ", "OE": "Œ"}
+    t = re.sub(r"\\(aa|AA|o|O|l|L|ss|ae|AE|oe|OE)\b", lambda m: letters[m.group(1)], t)
+    t = t.replace("~", " ").replace("\\ ", " ").replace("\\\\", " ")
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
     t = re.sub(r"\\[A-Za-z@]+\*?", " ", t)      # \emph, \url, \bf ... -> drop command
     t = t.replace("{", "").replace("}", "")     # {B}ayesian -> Bayesian
     t = t.replace("\\&", "&").replace("\\%", "%").replace("\\_", "_")
@@ -97,7 +118,11 @@ _KEY_RE = re.compile(r"\s*([^,\s]+)\s*,")
 _FIELD_RE = re.compile(r"([A-Za-z][A-Za-z0-9_\-]*)\s*=\s*")
 
 
+<<<<<<< HEAD
 def _read_value(body: str, pos: int) -> tuple[str, int]:
+=======
+def _read_value(body: str, pos: int, strings=None) -> tuple[str, int]:
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
     """Read one BibTeX field value (brace / quote / bare / ``#``-concatenation)."""
     parts: list[str] = []
     while True:
@@ -114,8 +139,24 @@ def _read_value(body: str, pos: int) -> tuple[str, int]:
             parts.append(group[0])
             pos = group[1]
         elif char == '"':
+<<<<<<< HEAD
             end = body.find('"', pos + 1)
             if end >= 0:
+=======
+            end, depth, escaped = pos + 1, 0, False
+            while end < len(body):
+                char = body[end]
+                if not escaped:
+                    if char == '"' and depth == 0:
+                        break
+                    if char == "{":
+                        depth += 1
+                    elif char == "}":
+                        depth = max(0, depth - 1)
+                escaped = char == "\\" and not escaped
+                end += 1
+            if end < len(body):
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
                 parts.append(body[pos + 1 : end])
                 pos = end + 1
             else:
@@ -127,7 +168,12 @@ def _read_value(body: str, pos: int) -> tuple[str, int]:
             end = pos
             while end < len(body) and body[end] not in ",}# \t\n":
                 end += 1
+<<<<<<< HEAD
             parts.append(body[pos:end])
+=======
+            value = body[pos:end]
+            parts.append((strings or {}).get(value.lower(), value))
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
             pos = end
         while pos < len(body) and body[pos].isspace():
             pos += 1
@@ -138,28 +184,69 @@ def _read_value(body: str, pos: int) -> tuple[str, int]:
     return "".join(parts), pos
 
 
+<<<<<<< HEAD
 def _scan_entries(text: str) -> tuple[list[tuple[str, str, str]], dict[str, str]]:
     """Return ([(entry_type, key, body), ...], {string_name: value})."""
     entries: list[tuple[str, str, str]] = []
     strings: dict[str, str] = {}
+=======
+def _scan_entries(text: str, cited_keys=None) -> tuple[list[tuple[str, str, str]], dict[str, str]]:
+    """Return ([(entry_type, key, body), ...], {string_name: value})."""
+    entries: list[tuple[str, str, str]] = []
+    strings: dict[str, str] = {}
+    # Index balanced groups once. Re-scanning the entire suffix for each broken
+    # entry is quadratic on large, partially malformed shared .bib libraries.
+    stack, pairs, escaped = [], {}, False
+    for index, char in enumerate(text if cited_keys is None else ""):
+        if escaped:
+            escaped = False
+        elif char == "\\":
+            escaped = True
+        elif char == "{":
+            stack.append(index)
+        elif char == "}" and stack:
+            pairs[stack.pop()] = index
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
     pos = 0
     while True:
         match = _AT_RE.search(text, pos)
         if match is None:
             break
         entry_type = match.group(1).lower()
+<<<<<<< HEAD
         open_brace = match.end() - 1
         group = _balanced(text, open_brace)
         if group is None:
             pos = match.end()                       # malformed: skip this block
             continue
         inner, pos = group
+=======
+        if cited_keys is not None and entry_type not in {"string", "comment", "preamble"}:
+            key_match = _KEY_RE.match(text, match.end())
+            if not key_match or key_match.group(1).strip() not in cited_keys:
+                pos = match.end()
+                continue
+        open_brace = match.end() - 1
+        if cited_keys is None:
+            close_brace = pairs.get(open_brace)
+        else:
+            group = _balanced(text, open_brace)
+            close_brace = group[1] - 1 if group else None
+        if close_brace is None:
+            pos = match.end()                       # malformed: skip this block
+            continue
+        inner, pos = text[open_brace + 1:close_brace], close_brace + 1
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
         if entry_type in ("comment", "preamble"):
             continue
         if entry_type == "string":
             definition = _STRING_DEF_RE.match(inner)
             if definition:
+<<<<<<< HEAD
                 value, _ = _read_value(inner, definition.end())
+=======
+                value, _ = _read_value(inner, definition.end(), strings)
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
                 strings[definition.group(1).lower()] = _clean_value(value)
             continue
         key_match = _KEY_RE.match(inner)
@@ -169,12 +256,15 @@ def _scan_entries(text: str) -> tuple[list[tuple[str, str, str]], dict[str, str]
     return entries, strings
 
 
+<<<<<<< HEAD
 def _expand_strings(value: str, strings: dict[str, str]) -> str:
     for name, replacement in strings.items():
         value = re.sub(rf"\b{re.escape(name)}\b", replacement, value)
     return value
 
 
+=======
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
 def _entry_from_fields(key: str, entry_type: str, fields: dict[str, str]) -> dict:
     year_raw = fields.get("year", "").strip()
     year_match = re.search(r"(19\d{2}|20\d{2})", year_raw)
@@ -199,9 +289,15 @@ def _entry_from_fields(key: str, entry_type: str, fields: dict[str, str]) -> dic
     }
 
 
+<<<<<<< HEAD
 def parse_bib(text: str) -> list[dict]:
     """Parse a ``.bib`` file into a list of entry dicts (skips @comment/@preamble/@string)."""
     entries, strings = _scan_entries(text)
+=======
+def parse_bib(text: str, cited_keys=None) -> list[dict]:
+    """Parse a ``.bib`` file into a list of entry dicts (skips @comment/@preamble/@string)."""
+    entries, strings = _scan_entries(text, cited_keys)
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
     out: list[dict] = []
     for entry_type, key, body in entries:
         fields: dict[str, str] = {}
@@ -211,8 +307,12 @@ def parse_bib(text: str) -> list[dict]:
             if not match:
                 break
             name = match.group(1).lower()
+<<<<<<< HEAD
             value, pos = _read_value(body, match.end())
             value = _expand_strings(value, strings)
+=======
+            value, pos = _read_value(body, match.end(), strings)
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
             if name not in fields:
                 fields[name] = _clean_value(value)
         out.append(_entry_from_fields(key, entry_type, fields))
@@ -228,8 +328,13 @@ _BIBITEM_RE = re.compile(
     re.DOTALL | re.IGNORECASE,
 )
 _TITLE_PATTERNS = [
+<<<<<<< HEAD
     re.compile(r"``(?P<t>[^']*)''", re.DOTALL),
     re.compile(r"[\u2018\u2019']\s*(?P<t>.{4,}?)\s*[\u2018\u2019']", re.DOTALL),
+=======
+    re.compile(chr(96) * 2 + r"(?P<t>.*?)(?:''|[”" + '"' + "])", re.DOTALL),
+    re.compile(r'"(?P<t>[^"\n]+)"|“(?P<u>[^”]+)”', re.DOTALL),
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
     re.compile(r"\\(?:emph|textit|textsl)\s*\{(?P<t>(?:[^{}]|\{[^{}]*\})*)\}", re.IGNORECASE),
     re.compile(r"\{\\(?:it|em|sl|itshape|emph)\s*(?P<t>(?:[^{}]|\{[^{}]*\})*)\}", re.IGNORECASE),
 ]
@@ -241,9 +346,39 @@ def _bibitem_authors(raw: str) -> list[str]:
     text = re.sub(r"\\href\s*\{[^{}]*\}\{([^{}]*)\}", r"\1", raw)   # \href{url}{Name} -> Name
     text = re.sub(r"\\url\s*\{[^{}]*\}", " ", text)
     text = _clean_value(text)
+<<<<<<< HEAD
     text = re.sub(r",?\s*$", "", text)
     parts = re.split(r",\s*|\s+and\s+", text, flags=re.IGNORECASE)
     return [re.sub(r"\s+", " ", p).strip(" ,.") for p in parts if re.sub(r"\s+", " ", p).strip(" ,.")]
+=======
+    text = re.sub(r"\s*\(?\b(?:19|20)\d{2}[a-z]?\)?[.,]?\s*$", "", text)
+    text = re.sub(r"\bet\s+al\.?", "", text, flags=re.IGNORECASE)
+    text = text.strip(" ,;")
+    text = re.sub(r"([^\W\d_]{2,})\.$", r"\1", text)
+    # Commas normally separate formatted names. Preserve 'Last, First' pairs
+    # when the surname is a single word; BibTeX's author parser normalizes them.
+    parts = []
+    for group in re.split(r"\s+and\s+|\s*&\s*", text, flags=re.IGNORECASE):
+        names = [p.strip(" ,;") for p in group.split(",") if p.strip(" ,;")]
+        index = 0
+        while index < len(names):
+            if (index + 1 < len(names) and re.fullmatch(r"[^\W\d_]+(?:[-'][^\W\d_]+)*", names[index])
+                    and names[index + 1]):
+                parts.extend(parse_authors(names[index] + ", " + names[index + 1]))
+                index += 2
+            else:
+                parts.append(names[index])
+                index += 1
+    return [re.sub(r"\s+", " ", p).strip(" ,.") for p in parts if any(c.isalpha() for c in p)]
+
+
+def _clean_title(raw):
+    title = _clean_value(raw).rstrip("., ")
+    for left, right in ((chr(96) * 2, "''"), ('"', '"'), ("“", "”")):
+        if title.startswith(left) and title.endswith(right):
+            return title[len(left):-len(right)].strip().rstrip("., ")
+    return title
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
 
 
 def _split_bibitem(content: str, year: int | None) -> tuple[str, str]:
@@ -259,6 +394,7 @@ def _split_bibitem(content: str, year: int | None) -> tuple[str, str]:
     content = re.sub(r"\\href\s*\{[^{}]*\}\{([^{}]*)\}", r"\1", content)
     content = re.sub(r"\\url\s*\{[^{}]*\}", " ", content)
 
+<<<<<<< HEAD
     segments = [segment for segment in re.split(r"\\newblock", content) if segment.strip()]
     if len(segments) >= 2:
         return segments[0], _clean_value(segments[1]).rstrip("., ")
@@ -277,6 +413,41 @@ def _split_bibitem(content: str, year: int | None) -> tuple[str, str]:
     sentence = re.search(r"[a-z]\.\s+(?=[A-Z])", rest)
     title = rest[: sentence.end()] if sentence else rest
     return authors, _clean_value(title).rstrip("., ")
+=======
+    # biblatex/natbib generated .bbl text can carry explicit field markers.
+    fields = {}
+    for marker in re.finditer(r"\\bibinfo\s*\{(author|title)\}\s*", content):
+        group = _balanced(content, marker.end())
+        if group:
+            fields.setdefault(marker.group(1), []).append(group[0])
+    if fields.get("title"):
+        return " and ".join(fields.get("author", [])), _clean_title(fields["title"][0])
+
+    segments = [segment for segment in re.split(r"\\newblock", content) if segment.strip()]
+    if len(segments) >= 2:
+        first = _clean_value(segments[0])
+        if re.search(r"[^\W\d_]{2,}\.\s+(?=[^\W\d_])", first):
+            return _split_bibitem(segments[0], year)
+        return segments[0], _clean_title(segments[1])
+
+    # A leading year belongs to the author-year style, not the end of a title.
+    head = re.sub(r"\s*\((?:19|20)\d{2}[a-z]?\)\.?\s*", ". ", content, count=1)
+    boundary = re.search(r"[^\W\d_]{2,}\.\s+(?=[^\W\d_])", head)
+    for pattern in _TITLE_PATTERNS:
+        found = pattern.search(content)
+        if found and (not boundary or found.start() <= boundary.end()):
+            title = found.groupdict().get("t") or found.groupdict().get("u")
+            return content[:found.start()], _clean_title(title)
+    if not boundary:
+        # Ambiguous text must not become a fake author containing title/venue.
+        return "", ""
+    authors = head[: boundary.end()].strip(" .,")
+    rest = _clean_value(head[boundary.end() :]).strip()
+    sentence = re.search(r"(?<=[^\W\d_])\.\s+(?=[^\W\d_\d]|(?:19|20)\d{2})", rest)
+    title = rest[:sentence.start()] if sentence else rest
+    title = re.sub(r"[,;.]?\s*\(?\b(?:19|20)\d{2}[a-z]?\)?[.,]?\s*$", "", title)
+    return authors, _clean_title(title)
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
 
 
 def extract_bibitems(text: str) -> list[dict]:
@@ -296,7 +467,15 @@ def extract_bibitems(text: str) -> list[dict]:
         for match in _BIBITEM_RE.finditer(block.group(0)):
             key = match.group(2).strip()
             content = match.group(3)
+<<<<<<< HEAD
             year_match = re.search(r"\b(19\d{2}|20\d{2})\b", content)
+=======
+            explicit_year = re.search(r"\\bibinfo\s*\{year\}\s*\{((?:19|20)\d{2})\}", content)
+            dated = re.sub(r"https?://[^\s{}]+|10\.\d{4,9}/[^\s{}]+", "", content)
+            author_year = re.search(r"\(((?:19|20)\d{2})[a-z]?\)", dated)
+            years = list(re.finditer(r"\b(19\d{2}|20\d{2})\b", dated))
+            year_match = explicit_year or author_year or (years[-1] if years else None)
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
             year = int(year_match.group(1)) if year_match else None
 
             authors_text, title = _split_bibitem(content, year)
@@ -330,15 +509,42 @@ def extract_references(gathered, version_dir, bib_scope: str = "cited") -> list[
     paper uses ``\\nocite{*}``); ``bib_scope="all"`` keeps every entry.
     """
     entries = extract_bibitems(gathered.text)
+<<<<<<< HEAD
     cited, nocite_star = find_cited_keys(gathered.text)
     for bib_text in load_bib_texts(version_dir, gathered.bib_files).values():
         for entry in parse_bib(bib_text):
             if bib_scope == "all" or nocite_star or entry["citation_key"] in cited:
                 entries.append(entry)
+=======
+    inline = {entry["citation_key"]: index for index, entry in enumerate(entries)}
+    cited, nocite_star = find_cited_keys(gathered.text)
+    for bib_text in load_bib_texts(version_dir, gathered.bib_files).values():
+        selected = None if bib_scope == "all" or nocite_star else cited
+        for entry in parse_bib(bib_text, selected):
+            if bib_scope == "all" or nocite_star or entry["citation_key"] in cited:
+                index = inline.pop(entry["citation_key"], None)
+                if index is None:
+                    entries.append(entry)
+                else:
+                    # A structured .bib entry is better evidence than heuristically
+                    # splitting the same key's inline rendering. Retain disagreements.
+                    rendered = entries[index]
+                    conflicts = {}
+                    for field in ("title", "authors", "year", "doi", "journal", "url"):
+                        old, new = rendered.get(field), entry.get(field)
+                        if not new and old:
+                            entry[field] = old
+                        elif old and new and old != new:
+                            conflicts[field] = [old, new]
+                    if conflicts:
+                        entry["extraction_conflicts"] = conflicts
+                    entries[index] = entry
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
     return entries
 
 
 def _norm_title(title: str) -> str:
+<<<<<<< HEAD
     return re.sub(r"\s+", " ", (title or "").lower()).strip(" ,.;:!?")
 
 
@@ -390,6 +596,167 @@ def unify_bibtex(per_version: dict) -> tuple[list[dict], dict[str, str]]:
 
 
 _CITE_RE = re.compile(r"(\\cite[a-z]*\*?(?:\[[^\]]*\])*\{)([^{}]*)(\})", re.IGNORECASE)
+=======
+    return re.sub(r"\s+", " ", unicodedata.normalize("NFC", title or "").casefold()).strip(" ,.;:!?")
+
+
+def _doi(value):
+    return re.sub(r"^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", "", value or "", flags=re.I).strip().rstrip(".,").lower()
+
+
+def _name(value):
+    return " ".join(re.sub(r"[^\w\s]", "", unicodedata.normalize("NFC", value).casefold()).split())
+
+
+def _same_author(a, b):
+    a, b = _name(a).split(), _name(b).split()
+    if a == b:
+        return True
+    return (len(a) == len(b) and len(a) > 1 and a[-1] == b[-1]
+            and all(x == y or (min(len(x), len(y)) == 1 and x[0] == y[0])
+                    for x, y in zip(a[:-1], b[:-1])))
+
+
+def _union_authors(left, right):
+    result = list(left or [])
+    for author in right or []:
+        if not author or _name(author) in {"others", "et al", "etal"}:
+            continue
+        match = next((i for i, old in enumerate(result) if _same_author(old, author)), None)
+        if match is None:
+            result.append(author)
+        elif len(_name(author)) > len(_name(result[match])):
+            result[match] = author
+    return result
+
+
+def unify_bibtex(per_version: dict, *, versioned=False, conflict_policy="raise") -> tuple[list[dict], dict]:
+    """Indexed dedup, field union and JSON conflict/source-key provenance.
+
+    DOI is strongest evidence. Equal titles or matching keys with missing title
+    are accepted only without contradictory DOI/year/author evidence.
+    versioned=True returns {version: {old_key: canonical_key}}. With
+    conflict_policy="preserve", ambiguous same-version keys remain unresolved;
+    all candidates survive with ambiguous_source_keys provenance. The original
+    ambiguous key is never a canonical key, so a join cannot silently choose one.
+    """
+    if conflict_policy not in {"raise", "preserve"}:
+        raise ValueError("Unknown reference conflict policy")
+    if conflict_policy == "preserve" and not versioned:
+        raise ValueError("Preserving ambiguous references requires versioned=True")
+    entries, indexes, used = [], defaultdict(set), set()
+    targets = defaultdict(set)
+    source_keys = {(e.get("citation_key") or "").strip()
+                   for refs in per_version.values() for e in refs}
+
+    def allocate(base, original=""):
+        canonical, suffix = base, 2
+        while canonical in used or (canonical in source_keys and canonical != original):
+            canonical = f"{base}__{suffix}"
+            suffix += 1
+        used.add(canonical)
+        return canonical
+
+    def compatible(a, b):
+        da, db = _doi(a.get("doi")), _doi(b.get("doi"))
+        if da and db:
+            return da == db
+        ta, tb = _norm_title(a.get("title")), _norm_title(b.get("title"))
+        if ta and tb and ta != tb:
+            return False
+        if a.get("year") and b.get("year") and a["year"] != b["year"]:
+            return False
+        aa, ab = a.get("authors", []), b.get("authors", [])
+        return not (aa and ab) or any(_same_author(x, y) for x in aa for y in ab)
+
+    for version in sorted(per_version):
+        for source in per_version[version]:
+            entry = dict(source)
+            key = (entry.get("citation_key") or "").strip()
+            fingerprints = [("doi", _doi(entry.get("doi"))),
+                            ("title", _norm_title(entry.get("title"))), ("key", key)]
+            candidate = None
+            for field, value in fingerprints:
+                if not value:
+                    continue
+                matches = [i for i in sorted(indexes[(field, value)]) if compatible(entries[i], entry)]
+                if len(matches) == 1:
+                    candidate = matches[0]
+                    break
+                if len(matches) > 1:
+                    break
+            if candidate is None:
+                candidate = len(entries)
+                canonical = allocate(key or f"reference_{candidate + 1}", key)
+                kept = dict(entry, citation_key=canonical, authors=_union_authors([], entry.get("authors")))
+                kept["source_keys"] = []
+                entries.append(kept)
+            else:
+                kept = entries[candidate]
+                kept["authors"] = _union_authors(kept.get("authors"), entry.get("authors"))
+                for field in ("title", "year", "doi", "journal", "url", "entry_type"):
+                    old, new = kept.get(field), entry.get(field)
+                    if old in (None, "", "misc") and new not in (None, ""):
+                        kept[field] = new
+                    elif new not in (None, "") and old != new:
+                        equivalent = (field == "title" and _norm_title(old) == _norm_title(new)
+                                      or field == "doi" and _doi(old) == _doi(new))
+                        if not equivalent:
+                            values = kept.setdefault("field_conflicts", {}).setdefault(field, [old])
+                            if new not in values:
+                                values.append(new)
+                        if field == "title" and equivalent and len(new) > len(old):
+                            kept[field] = new
+            provenance = {"version": version, "citation_key": key}
+            if provenance not in kept["source_keys"]:
+                kept["source_keys"].append(provenance)
+            for field, value in fingerprints:
+                if value:
+                    indexes[(field, value)].add(candidate)
+            if key:
+                targets[(version, key)].add(candidate)
+                if len(targets[(version, key)]) > 1 and conflict_policy == "raise":
+                    raise ValueError(f"v{version}: citation key {key!r} identifies conflicting references")
+
+    ambiguous = {(v, k): ids for (v, k), ids in targets.items() if len(ids) > 1}
+    blocked_keys = {k for _, k in ambiguous}
+    for entry in entries:
+        if entry["citation_key"] in blocked_keys:
+            entry["citation_key"] = allocate(entry["citation_key"] + "__candidate")
+    for (version, key), candidates in sorted(ambiguous.items()):
+        for index in sorted(candidates):
+            entries[index].setdefault("ambiguous_source_keys", []).append(
+                {"version": version, "citation_key": key})
+    aliases = {v: {} for v in per_version}
+    for (version, key), candidates in targets.items():
+        if len(candidates) == 1:
+            aliases[version][key] = entries[next(iter(candidates))]["citation_key"]
+
+    if versioned:
+        return entries, {v: {k: dest for k, dest in m.items() if k != dest} for v, m in aliases.items()}
+    destinations = defaultdict(set)
+    for mapping in aliases.values():
+        for key, dest in mapping.items():
+            destinations[key].add(dest)
+    if any(len(values) > 1 for values in destinations.values()):
+        raise ValueError("Citation keys reused across versions; use versioned=True")
+    return entries, {k: next(iter(values)) for k, values in destinations.items() if k not in values}
+
+
+def reference_conflicts(entries):
+    """Group ambiguous source keys with all candidate canonical references."""
+    conflicts = {}
+    for entry in entries:
+        for source in entry.get("ambiguous_source_keys", []):
+            key = (source["version"], source["citation_key"])
+            record = conflicts.setdefault(key, {
+                **source, "candidate_keys": [], "reason": "conflicting_reference_identity"})
+            record["candidate_keys"].append(entry["citation_key"])
+    return [conflicts[key] for key in sorted(conflicts)]
+
+
+_CITE_RE = re.compile(r"(\\[A-Za-z]*cite[A-Za-z]*\*?\s*(?:\[[^\]]*\]\s*)*\{)([^{}]*)(\})", re.IGNORECASE)
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
 
 
 def rename_cites(text: str, mapping: dict[str, str]) -> str:

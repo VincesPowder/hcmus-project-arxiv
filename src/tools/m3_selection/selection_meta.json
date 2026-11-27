@@ -1,0 +1,67 @@
+{
+  "seed": "m3-2026",
+  "n_auto_per_owner": 500,
+  "candidates_file": "candidates.csv",
+  "candidates_sha256": "182ace6b68d05ccdef6b340de6c8c820bd59b12636634c2d51c44257dc9d6517",
+  "slots": [
+    [
+      "test",
+      "thap"
+    ],
+    [
+      "valid",
+      "vua"
+    ],
+    [
+      "train1",
+      "cao"
+    ],
+    [
+      "train2",
+      "vua"
+    ],
+    [
+      "train3",
+      "thap"
+    ]
+  ],
+  "reserve_tiers": [
+    "thap",
+    "thap",
+    "vua",
+    "cao"
+  ],
+  "hard_ratio": 0.7,
+  "easy_ratio": 0.85,
+  "hard_min_refs": 30,
+  "hard_min_bib": 30,
+  "hard_min_hits": 10,
+  "manual_max_bib": 150,
+  "manual_max_refs": 250,
+  "auto_eval_min_hits": 20,
+  "manual_pool_sizes": {
+    "24127192": {
+      "cao": 1353,
+      "vua": 42,
+      "thap": 13
+    },
+    "24127262": {
+      "cao": 1372,
+      "vua": 45,
+      "thap": 18
+    },
+    "24127465": {
+      "cao": 1271,
+      "vua": 51,
+      "thap": 14
+    },
+    "24127534": {
+      "cao": 1062,
+      "vua": 69,
+      "thap": 17
+    }
+  },
+  "pandas": "3.1.1",
+  "python": "3.13.5",
+  "warnings": []
+}

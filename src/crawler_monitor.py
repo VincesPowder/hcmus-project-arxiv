@@ -18,11 +18,24 @@ class ResourceMonitor:
         self.thread = threading.Thread(target=self.run, daemon=True)
         self.process = psutil.Process()
         self.baseline_disk_mb = None
+<<<<<<< HEAD
+=======
+        self.process_tree_complete = True
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
 
     def sample_ram_mb(self):
         """RSS of this process plus its children, in MB."""
         total = self.process.memory_info().rss
+<<<<<<< HEAD
         for child in self.process.children(recursive=True):
+=======
+        try:
+            children = self.process.children(recursive=True)
+        except (psutil.Error, PermissionError):
+            children = []
+            self.process_tree_complete = False
+        for child in children:
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
             try:
                 total += child.memory_info().rss
             except psutil.Error:
@@ -50,4 +63,9 @@ class ResourceMonitor:
         ram, disk = self.ram_samples_mb or [0.0], self.disk_samples_mb or [self.baseline_disk_mb]
         return {"max_ram_mb": max(ram), "avg_ram_mb": sum(ram) / len(ram),
                 "n_ram_samples": len(ram),
+<<<<<<< HEAD
+=======
+                "ram_scope": "process_tree" if self.process_tree_complete else "main_process_only",
+                "ram_sampling_interval_seconds": self.interval_seconds,
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
                 "max_disk_growth_mb": max(disk) - self.baseline_disk_mb}

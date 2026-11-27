@@ -7,3 +7,13 @@ test_corpus/
 test_work/
 parsed/
 *.parquet
+<<<<<<< HEAD
+=======
+book/_build/
+book/_generated/
+
+# M3 local labels, disk index and diagnostics (never commit data)
+work_m3/
+*.sqlite
+*.sqlite-journal
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3

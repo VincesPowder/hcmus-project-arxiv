@@ -27,7 +27,11 @@ from pathlib import Path
 from assemble import PaperAssembler, iter_nodes
 from gather import gather_version
 from hier_parser import parse_document                                    # B: real parser
+<<<<<<< HEAD
 from refs import extract_references, unify_bibtex, rename_cites           # C: real references
+=======
+from refs import extract_references, unify_bibtex, rename_cites, reference_conflicts
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
 
 LOGGER = logging.getLogger("m2.pipeline")
 FAIL_STATUSES = {"parse_error", "timeout", "no_root", "not_downloaded"}
@@ -78,10 +82,25 @@ def parse_one_version(version_dir, timeout, bib_scope="cited"):
               "missing_includes": [], "warnings": [], "n_bib_files": 0, "bib_missing": 0,
               "nodes": 0, "n_references": 0, "error": None}
     marker = Path(version_dir) / "metadata.json"
+<<<<<<< HEAD
     if not marker.exists():                                  # M1 never finished this version
         record["status"] = "not_downloaded"
         return record, None, []
     if read_json(marker)["stats"]["status"] != "ok":         # PDF-only etc.: empty record, kept
+=======
+    manifest = Path(version_dir) / "manifest.json"
+    if not marker.exists() and not manifest.exists():
+        record["status"] = "not_downloaded"
+        return record, None, []
+    state = read_json(marker)["stats"]["status"] if marker.exists() else read_json(manifest).get("status")
+    if state in {"failed", "error", "download_failed"}:
+        record.update(status="not_downloaded", error=f"M1 source status: {state}")
+        return record, None, []
+    if state not in {"ok", "extracted", "empty", "no_tex"}:
+        record.update(status="not_downloaded", error=f"Unknown M1 source status: {state}")
+        return record, None, []
+    if state in {"empty", "no_tex"}:
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
         record["status"] = "empty"
         return record, None, []
     try:
@@ -120,12 +139,23 @@ def process_paper(job):
         return {"key": key, "status": "skipped"}
     started = time.perf_counter()
     try:
+<<<<<<< HEAD
         paper = read_json(paper_dir / "paper.json")
+=======
+        metadata = paper_dir / "paper.json"
+        legacy_layout = not metadata.exists()
+        paper = read_json(paper_dir / "paper_metadata.json" if legacy_layout else metadata)
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
         arxiv_id = paper["arxiv_id"]
         versions, trees, bib_by_version = [], {}, {}
         for version_info in sorted(paper["versions"], key=lambda v: v["version"]):
             number = version_info["version"]
+<<<<<<< HEAD
             record, tree, entries = parse_one_version(paper_dir / f"v{number}", timeout, bib_scope)
+=======
+            version_dir = paper_dir / "sources" / f"v{number}" if legacy_layout else paper_dir / f"v{number}"
+            record, tree, entries = parse_one_version(version_dir, timeout, bib_scope)
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
             record["version"] = number
             versions.append(record)
             if tree is not None:
@@ -133,9 +163,18 @@ def process_paper(job):
 
         # Order matters: unify references FIRST and rename the \cite keys, THEN compare texts,
         # otherwise the same sentence citing vaswani2017 (v1) / vit_transformer (v3) never matches.
+<<<<<<< HEAD
         bibtex, rename_map = unify_bibtex(bib_by_version) if bib_by_version else ([], {})
         assembler = PaperAssembler(key, arxiv_id)
         for number in sorted(trees):
+=======
+        bibtex, version_maps = unify_bibtex(
+            bib_by_version, versioned=True, conflict_policy="preserve") if bib_by_version else ([], {})
+        conflicts = reference_conflicts(bibtex)
+        assembler = PaperAssembler(key, arxiv_id)
+        for number in sorted(trees):
+            rename_map = version_maps.get(number, {})
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
             if rename_map:
                 for node in iter_nodes(trees[number]):
                     node.content = rename_cites(node.content, rename_map)
@@ -153,10 +192,20 @@ def process_paper(job):
             "versions": versions,
             "elements": [[r["element_id"], r["kind"], r["content"]] for r in assembler.element_rows()],
             "hierarchy": [[v, e, p] for v, e, p in assembler.hierarchy],
+<<<<<<< HEAD
             "bibtex": bibtex, "cite_renames": len(rename_map),
             "stats": {**assembler.stats(), "bib_before_dedup": n_entries_before,
                       "bib_after_dedup": len(bibtex), "hierarchy_problems": len(problems)}})
         return {"key": key, "status": "done", "seconds": seconds,
+=======
+            "bibtex": bibtex, "cite_renames": sum(len(m) for m in version_maps.values()),
+            "citation_aliases": version_maps,
+            "reference_conflicts": conflicts,
+            "stats": {**assembler.stats(), "bib_before_dedup": n_entries_before,
+                      "bib_after_dedup": len(bibtex), "hierarchy_problems": len(problems)}})
+        return {"key": key, "status": "done", "seconds": seconds,
+                "n_reference_conflicts": len(conflicts),
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
                 "n_failed_versions": sum(r["status"] in FAIL_STATUSES for r in versions)}
     except Exception as error:  # noqa: BLE001
         return {"key": key, "status": "failed", "error": f"{type(error).__name__}: {error}",
@@ -165,7 +214,12 @@ def process_paper(job):
 
 # ----------------------------------------------------------------------------- run + tables
 def list_papers(corpus_dir, only=None, limit=None):
+<<<<<<< HEAD
     papers = [p for p in sorted(Path(corpus_dir).iterdir()) if (p / "paper.json").exists()]
+=======
+    papers = [p for p in sorted(Path(corpus_dir).iterdir())
+              if (p / "paper.json").exists() or (p / "paper_metadata.json").exists()]
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
     if only:
         papers = [p for p in papers if p.name in set(only)]
     return papers[:limit] if limit else papers

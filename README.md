@@ -11,6 +11,127 @@ modules to `src/` without removing the previous ones.
 Works on Windows, macOS, Linux and Google Colab. **Python 3.10+** required.
 No data is stored in this repository (`corpus/`, `work/`, `parsed/` are git-ignored).
 
+<<<<<<< HEAD
+=======
+## Group 2 — members and assigned publications
+
+The group is assigned **20,000 publications**: four non-overlapping ranges of 5,000 IDs each (inclusive endpoints). Counts refer to publications, not versions.
+
+| Student ID | Full name | Assigned arXiv IDs |
+|---|---|---|
+| 24127192 | Dương Huỳnh Minh Khôi | `2606.00734`–`2606.05733` |
+| 24127262 | Đỗ Thành Vinh | `2605.02338`–`2605.07337` |
+| 24127465 | Tạ Mai Như Ngọc | `2602.09870`–`2602.14869` |
+| 24127534 | Trương Quang Tạo | `2512.18231`–`2512.23230` |
+
+## Milestone reports
+
+The cumulative Jupyter Book is in `book/`: [Milestone 1](book/milestone1.md) and
+[Milestone 2](book/milestone2.md). The existing public book is at
+<https://denver1106.github.io/hcmus-project-arxiv/>; branch changes appear there only after deployment.
+
+Build the report (no crawling or corpus parsing):
+
+```bash
+pip install -r book/requirements.txt
+jupyter-book build book
+```
+
+M2 tables and figures
+are generated during compilation by `book/report_metrics.py`. To include actual M2 results,
+set `M2_PARSED_DIRS` to the four `parsed/` paths and `M2_METRICS_FILES` to their
+`parse_metrics.json` paths (separate paths with `os.pathsep`: `:` on Linux/macOS, `;` on Windows).
+No source corpus is read or parsed by the report build. Without these inputs, the report explicitly
+marks the measurements unavailable. See the report for the required Colab CPU benchmark and schema.
+
+This branch includes focused regression cases in `tests/test_bibitem_fields.py` for the
+reference-field fix. Legacy tests were removed on upstream `main`.
+No tests, crawling or full-corpus parsing were executed for this update.
+
+---
+
+## Run the full Milestone 2 notebook on Colab
+
+Metadata inventory uses at most eight concurrent readers to reduce small-file
+latency on Drive. The notebook streams child-process logs into cell output, so
+parse progress and failures remain visible while the full run is in progress.
+`WORKERS` is honored even above the CPU count, allowing overlap of Drive reads.
+Start with 2; increase within the runtime's RAM limit when input is I/O bound.
+
+[Open the notebook from m3-data-split](https://colab.research.google.com/github/VincesPowder/hcmus-project-arxiv/blob/m3-data-split/src/milestone2.ipynb).
+
+Choose **CPU**, edit `CORPUS_DIRS` and `RUN_DIR` in the configuration cell, then **Run all**.
+`LIMIT=0` processes the complete supplied input. Several corpus directories are supported;
+each must directly contain publication folders in either the standard M1 layout or
+`paper_metadata.json + sources/vN/manifest.json` layout.
+
+The notebook clones this branch, installs only M2 dependencies, mounts Drive if enabled,
+parses every declared version, applies version-specific reference aliases, audits results,
+exports fresh Parquet shards and displays actual coverage/quality/performance.
+It never crawls or downloads the corpus.
+
+The final notebook cell writes `pipeline_verification.json` and checks selected-input
+coverage, schema and the previously failing publications present in that input. It raises
+if those checks fail, after preserving exported files. Passing these checks does not clear
+reference/source quality flags or turn a `partial` result into full M2 completion.
+The [verified 5,000-paper Colab run](reports/m2_colab_full_2606_20261120.md)
+records the actual outputs and outstanding quality issues.
+
+```text
+RUN_DIR/
+├── parsed/<paper>.json
+├── paper_failures.json
+├── input_inventory.json
+├── run_identity.json
+├── source_fingerprint.json
+├── work/parse_metrics.json
+├── work/parse.log
+├── work/parse_errors.jsonl
+├── audit/{summary.json,coverage.csv,publications.csv,...}
+├── exports/<export-id>/
+│   ├── tables/elements/*.parquet
+│   ├── tables/hierarchy/*.parquet
+│   ├── tables/bibtex/*.parquet
+│   ├── logs/{parse_papers.csv,parse_versions.csv}
+│   └── export_validation.json
+├── figures/*.png
+├── latest_result.json
+├── pipeline_verification.json  # final notebook coverage/schema checks; separate from reports.zip
+└── reports.zip
+```
+
+The three datasets exist with their typed schemas even if a table has zero rows.
+If every publication fails, no data rows are fabricated; the notebook shows the errors
+and skips preview of a nonexistent export. Individual paper failures do not prevent
+exporting good papers. A `partial` result is not full group completion.
+
+Repeated citation keys with conflicting metadata no longer discard a publication.
+The parser preserves the tree and all reference candidates, assigns distinct canonical
+keys, and leaves the ambiguous citation unresolved. Inspect `reference_conflicts` in
+`parsed/<paper>.json`, `audit/reference_conflicts.jsonl` and
+`audit/unresolved_citations.csv`. Candidate provenance is also retained in each JSON
+reference's `ambiguous_source_keys`. Parquet retains the separate candidate rows;
+the JSON/audit files explain their ambiguity. Such runs remain `partial` until reviewed.
+An unchanged source conflict is not reparsed on resume; source edits require a fresh run.
+
+Drive output supports resume. Source/input/configuration changes require a fresh `RUN_DIR`;
+changing only worker count is allowed. Successful JSON is reused, and incomplete versions
+can be retried. Every export uses a new directory to avoid stale shards.
+Do not use one `RUN_DIR` concurrently from multiple runtimes. `reports.zip` contains small
+reports; full parsed JSON/Parquet remain in `RUN_DIR` and are not in that ZIP.
+
+Equivalent local/Colab CLI:
+
+```bash
+pip install -r src/requirements-m2.txt
+python src/tools/run_m2_full.py --corpus-dirs /path/to/corpus1 /path/to/corpus2 --run-dir /path/to/new-output --workers 2 --timeout 120
+```
+
+Full-notebook regression tests execute every Python code cell on isolated fixtures
+(Drive/clone/package installation disabled), including an intentional reference conflict,
+raw-layout input, empty-source versions, figures, ZIP, resume and typed Parquet validation.
+
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
 ---
 
 ## Table of contents
@@ -43,6 +164,7 @@ No data is stored in this repository (`corpus/`, `work/`, `parsed/` are git-igno
 |   |-- assemble.py              # M2: element ids, cross-version deduplication, elements/hierarchy rows
 |   |-- hier_parser.py           # M2: LaTeX -> tree, cleanup, math normalization       (parser module)
 |   |-- refs.py                  # M2: \bibitem/.bib -> BibTeX, reference dedup, \cite renaming  (reference module)
+<<<<<<< HEAD
 |   |-- dev_stubs.py             # M2: placeholders used ONLY while hier_parser.py / refs.py are missing
 |-- tests/
 |   |-- helpers.py, test_gather.py, test_assemble.py, test_pipeline.py
@@ -51,6 +173,16 @@ No data is stored in this repository (`corpus/`, `work/`, `parsed/` are git-igno
 `pipeline.py` imports `hier_parser` and `refs`; if one of them is not found it prints a warning and
 falls back to `dev_stubs.py`. **Numbers produced with the stubs are for plumbing checks only and must
 not be used in the report.**
+=======
+|   |-- dev_stubs.py             # historical test doubles; not used by the real pipeline
+|-- tests/
+|   |-- test_bibitem_fields.py   # focused reference-field regression cases
+|-- book/                       # cumulative Jupyter Book reports
+```
+
+`pipeline.py` imports `hier_parser` and `refs` directly. Missing modules are an installation
+error; the real pipeline does not fall back to `dev_stubs.py`.
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
 
 ## 2. Setup
 
@@ -352,6 +484,7 @@ use `--limit`.
 python -m unittest discover -s tests -v      # standard library only; pytest also works
 ```
 
+<<<<<<< HEAD
 - `test_gather.py` — comments (`%`, `\%`, `comment` environment), include forms and resolution, missing files,
   cycles, escaping the folder, unreachable files, `\subfile`, root selection, encodings, `.bib` resolution,
   citation-key detection.
@@ -363,6 +496,11 @@ python -m unittest discover -s tests -v      # standard library only; pytest als
 
 The pipeline tests replace the parser and reference modules by `dev_stubs.py`, so they keep passing when
 the real modules change. The timeout test is skipped on Windows (no `SIGALRM`).
+=======
+`test_bibitem_fields.py` covers initials, author-year references, apostrophes, quoted titles,
+formatted venues, explicit `bibinfo` fields and ambiguous entries. These cases have been added
+but not executed in this update, following the requested no-tests constraint.
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
 
 ## 7. Performance measurement
 
@@ -383,7 +521,10 @@ run only measures the part that was re-executed.
 | Symptom | Fix |
 |---|---|
 | `FileNotFoundError ... 'corpus'` (WinError 3) | The corpus folder does not exist relative to where you run: pass `--corpus-dir <path>` or run the Milestone 1 smoke test first |
+<<<<<<< HEAD
 | `WARNING: hier_parser not found` / `refs not found` | The parser/reference modules are not in `src/`; the placeholder stubs are used (also printed once per worker on Windows) |
+=======
+>>>>>>> d1f2bdba2dc8b2d628c7edc8bb77360995a301c3
 | `ModuleNotFoundError: pyarrow` / `psutil` | Activate the venv, then `pip install -r src/requirements.txt` |
 | Ids like `2605.0234` in a table | CSV read without `dtype={"arxiv_id": str}` |
 | `n_references` huge (thousands) | A shared `.bib` library; use `--bib-scope cited` (default) |
